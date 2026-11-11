@@ -561,6 +561,20 @@ impl super::MenuScene {
                 song.set_player(player);
             }
         }
+
+        spacer(ui);
+
+        self::update_input_min_velocity(
+            ctx,
+            nuon::settings_row_spin()
+                .title(locals::settings::input_min_velocity())
+                .subtitle(match ctx.config.input_min_velocity() {
+                    0 => locals::settings::off(),
+                    velocity => velocity.to_string(),
+                })
+                .id("input-min-velocity")
+                .build(ui, rows),
+        );
     }
 
     fn settings_keyboard_size_row(
@@ -774,6 +788,26 @@ pub fn update_audio_gain(ctx: &mut Context, kind: nuon::SettingsRowSpinResult) {
 
     ctx.config
         .set_audio_gain((ctx.config.audio_gain() * 10.0).round() / 10.0);
+}
+
+/// Steps of the minimum key velocity setting. 127 is the hardest press a keyboard can send.
+const INPUT_MIN_VELOCITY_STEP: u8 = 10;
+const INPUT_MIN_VELOCITY_MAX: u8 = 120;
+
+pub fn update_input_min_velocity(ctx: &mut Context, kind: nuon::SettingsRowSpinResult) {
+    let velocity = ctx.config.input_min_velocity();
+    match kind {
+        nuon::SettingsRowSpinResult::Plus => {
+            ctx.config.set_input_min_velocity(
+                (velocity + INPUT_MIN_VELOCITY_STEP).min(INPUT_MIN_VELOCITY_MAX),
+            );
+        }
+        nuon::SettingsRowSpinResult::Minus => {
+            ctx.config
+                .set_input_min_velocity(velocity.saturating_sub(INPUT_MIN_VELOCITY_STEP));
+        }
+        nuon::SettingsRowSpinResult::Idle => {}
+    }
 }
 
 const MIN_RANGE_LEN: u8 = 24;
