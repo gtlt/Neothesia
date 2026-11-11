@@ -155,6 +155,21 @@ pub mod settings {
         }
     }
 
+    pub fn input_min_velocity() -> String {
+        match LOCAL.as_str() {
+            "de" => "Mindest-Anschlagstärke".into(),
+            _ => "Minimum Key Velocity".into(),
+        }
+    }
+
+    pub fn off() -> String {
+        match LOCAL.as_str() {
+            "pl" => "Wyłączone".into(),
+            "de" => "Aus".into(),
+            _ => "Off".into(),
+        }
+    }
+
     pub fn note_range() -> String {
         match LOCAL.as_str() {
             "pl" => "Zakres nut".into(),

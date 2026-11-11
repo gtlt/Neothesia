@@ -158,6 +158,10 @@ impl Neothesia {
                 self.game_scene = Box::new(to);
             }
             NeothesiaEvent::MidiInput { channel, message } => {
+                let message = input_manager::with_min_velocity(
+                    message,
+                    self.context.config.input_min_velocity(),
+                );
                 self.game_scene
                     .midi_event(&mut self.context, channel, &message);
             }

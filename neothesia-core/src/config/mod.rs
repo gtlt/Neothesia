@@ -208,6 +208,15 @@ impl Config {
         self.devices.input = v.map(|v| v.to_string());
     }
 
+    /// Lowest velocity a key press can have, 0 when the keyboard is left as it is.
+    pub fn input_min_velocity(&self) -> u8 {
+        self.devices.input_min_velocity.min(127)
+    }
+
+    pub fn set_input_min_velocity(&mut self, velocity: u8) {
+        self.devices.input_min_velocity = velocity.min(127);
+    }
+
     pub fn background_color(&self) -> (u8, u8, u8) {
         self.appearance.background_color
     }

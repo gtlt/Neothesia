@@ -139,6 +139,10 @@ pub struct DevicesConfigV1 {
 
     #[serde(default = "default_separate_channels")]
     pub separate_channels: bool,
+
+    /// Key presses softer than this are raised to it. 0 turns it off.
+    #[serde(default)]
+    pub input_min_velocity: u8,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -152,6 +156,7 @@ impl Default for DevicesConfig {
             output: default_output(),
             input: None,
             separate_channels: default_separate_channels(),
+            input_min_velocity: 0,
         })
     }
 }
