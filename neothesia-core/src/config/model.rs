@@ -220,6 +220,10 @@ pub struct AppearanceConfigV1 {
 
     #[serde(default)]
     pub note_naming: NoteNaming,
+
+    /// Keep the top bar of the playing scene open, instead of only on hover.
+    #[serde(default)]
+    pub pin_top_bar: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -237,6 +241,7 @@ impl Default for AppearanceConfig {
             glow: default_glow(),
             chord_identifier: false,
             note_naming: NoteNaming::default(),
+            pin_top_bar: false,
         })
     }
 }

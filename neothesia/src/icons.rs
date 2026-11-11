@@ -24,6 +24,14 @@ pub fn pause_icon() -> &'static str {
     "\u{f4c3}"
 }
 
+pub fn pin_icon() -> &'static str {
+    "\u{f4eb}"
+}
+
+pub fn pin_fill_icon() -> &'static str {
+    "\u{f4ea}"
+}
+
 pub fn left_arrow_icon() -> &'static str {
     "\u{f12f}"
 }
