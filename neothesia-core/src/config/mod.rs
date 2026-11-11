@@ -208,6 +208,14 @@ impl Config {
         self.devices.input = v.map(|v| v.to_string());
     }
 
+    pub fn pin_top_bar(&self) -> bool {
+        self.appearance.pin_top_bar
+    }
+
+    pub fn set_pin_top_bar(&mut self, pin_top_bar: bool) {
+        self.appearance.pin_top_bar = pin_top_bar;
+    }
+
     pub fn background_color(&self) -> (u8, u8, u8) {
         self.appearance.background_color
     }

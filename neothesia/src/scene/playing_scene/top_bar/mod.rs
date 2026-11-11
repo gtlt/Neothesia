@@ -53,7 +53,7 @@ impl TopBar {
         let h = 75.0;
         let is_hovered = window_state.cursor_logical_position.y < h * 1.7;
 
-        top_bar.is_expanded = is_hovered;
+        top_bar.is_expanded = is_hovered || ctx.config.pin_top_bar();
 
         top_bar
             .topbar_expand_animation
@@ -239,6 +239,19 @@ impl TopBar {
                     .build(ui)
                 {
                     this.player.pause_resume();
+                }
+
+                nuon::translate().x(-30.0).add_to_current(ui);
+
+                if Self::button()
+                    .icon(if ctx.config.pin_top_bar() {
+                        icons::pin_fill_icon()
+                    } else {
+                        icons::pin_icon()
+                    })
+                    .build(ui)
+                {
+                    ctx.config.set_pin_top_bar(!ctx.config.pin_top_bar());
                 }
             });
     }
