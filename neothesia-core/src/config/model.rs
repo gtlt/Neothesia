@@ -58,6 +58,10 @@ impl Default for WaterfallConfig {
 pub struct PlaybackConfigV1 {
     #[serde(default = "default_speed_multiplier")]
     pub speed_multiplier: f32,
+
+    /// Newly opened songs wait for the player instead of playing by themselves.
+    #[serde(default)]
+    pub play_along_by_default: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -69,6 +73,7 @@ impl Default for PlaybackConfig {
     fn default() -> Self {
         Self::V1(PlaybackConfigV1 {
             speed_multiplier: default_speed_multiplier(),
+            play_along_by_default: false,
         })
     }
 }

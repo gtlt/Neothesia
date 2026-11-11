@@ -155,6 +155,20 @@ pub mod settings {
         }
     }
 
+    pub fn play_along_by_default() -> String {
+        match LOCAL.as_str() {
+            "de" => "Standardmäßig mitspielen".into(),
+            _ => "Play Along by Default".into(),
+        }
+    }
+
+    pub fn play_along_by_default_subtitle() -> String {
+        match LOCAL.as_str() {
+            "de" => "Neue Stücke warten, bis Du die richtigen Tasten spielst".into(),
+            _ => "New songs wait until you play the right keys".into(),
+        }
+    }
+
     pub fn note_range() -> String {
         match LOCAL.as_str() {
             "pl" => "Zakres nut".into(),
