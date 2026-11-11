@@ -175,6 +175,7 @@ pub mod settings {
     pub fn play_along_by_default() -> String {
         match LOCAL.as_str() {
             "de" => "Standardmäßig mitspielen".into(),
+            "fr" => "Attendre mes touches".into(),
             _ => "Play Along by Default".into(),
         }
     }
@@ -182,6 +183,7 @@ pub mod settings {
     pub fn play_along_by_default_subtitle() -> String {
         match LOCAL.as_str() {
             "de" => "Neue Stücke warten, bis Du die richtigen Tasten spielst".into(),
+            "fr" => "Les nouveaux morceaux attendent la bonne touche pour avancer".into(),
             _ => "New songs wait until you play the right keys".into(),
         }
     }
