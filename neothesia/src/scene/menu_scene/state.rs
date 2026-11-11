@@ -98,15 +98,22 @@ impl UiState {
         }
 
         if self.selected_input.is_none() {
-            if let Some(input) = self
+            let saved = ctx.config.input();
+
+            let exact = self
                 .inputs
                 .iter()
-                .find(|input| Some(input.to_string().as_str()) == ctx.config.input())
-            {
-                self.selected_input = Some(input.clone());
-            } else {
-                self.selected_input = self.inputs.first().cloned();
-            }
+                .find(|input| Some(input.to_string().as_str()) == saved);
+
+            // Same device, plugged in a different order than last time.
+            let renumbered = || {
+                let saved = without_port_numbers(saved?);
+                self.inputs
+                    .iter()
+                    .find(|input| without_port_numbers(&input.to_string()) == saved)
+            };
+
+            self.selected_input = exact.or_else(renumbered).or(self.inputs.first()).cloned();
         }
     }
 }
@@ -156,4 +163,49 @@ pub fn freeplay(data: &UiState, ctx: &mut Context) {
     ctx.proxy
         .send_event(NeothesiaEvent::FreePlay(data.song.clone()))
         .ok();
+}
+
+/// Port name without the client and port numbers that ALSA appends to it,
+/// e.g. `"Keyboard:Keyboard MIDI 1 24:0"` gives `"Keyboard:Keyboard MIDI 1"`.
+///
+/// Those numbers depend on the order devices were plugged in, so they can't
+/// be relied on to find a device again.
+fn without_port_numbers(name: &str) -> &str {
+    let Some((device, numbers)) = name.rsplit_once(' ') else {
+        return name;
+    };
+    let Some((client, port)) = numbers.split_once(':') else {
+        return name;
+    };
+
+    let is_number = |text: &str| !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit());
+    if is_number(client) && is_number(port) {
+        device
+    } else {
+        name
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::without_port_numbers;
+
+    #[test]
+    fn alsa_numbers_are_dropped() {
+        assert_eq!(
+            without_port_numbers("Keyboard:Keyboard MIDI 1 24:0"),
+            "Keyboard:Keyboard MIDI 1"
+        );
+        assert_eq!(
+            without_port_numbers("Keyboard:Keyboard MIDI 1 20:0"),
+            without_port_numbers("Keyboard:Keyboard MIDI 1 24:0")
+        );
+    }
+
+    #[test]
+    fn other_names_are_left_alone() {
+        for name in ["Keyboard", "Keyboard MIDI 1", "Port 1:2a", "Mix 12:", ""] {
+            assert_eq!(without_port_numbers(name), name);
+        }
+    }
 }
