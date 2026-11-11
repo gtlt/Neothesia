@@ -277,6 +277,14 @@ impl Config {
         self.playback.speed_multiplier = speed_multiplier.max(0.0);
     }
 
+    pub fn play_along_by_default(&self) -> bool {
+        self.playback.play_along_by_default
+    }
+
+    pub fn set_play_along_by_default(&mut self, play_along_by_default: bool) {
+        self.playback.play_along_by_default = play_along_by_default;
+    }
+
     pub fn pc_keyboard_octave(&self) -> u8 {
         self.pc_keyboard.octave_shift.min(10)
     }

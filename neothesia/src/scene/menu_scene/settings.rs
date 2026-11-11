@@ -4,6 +4,7 @@ use crate::{
     context::Context,
     locals,
     scene::menu_scene::{MsgFn, icons, neo_btn_icon, on_async},
+    song::PlayerConfig,
     utils::BoxFuture,
 };
 use neothesia_core::config::NoteNaming;
@@ -523,7 +524,7 @@ impl super::MenuScene {
         ctx: &mut Context,
         ui: &mut nuon::Ui,
         rows: &dyn Fn(&mut nuon::Ui, nuon::SettingsRow<'_>),
-        _spacer: &dyn Fn(&mut nuon::Ui),
+        spacer: &dyn Fn(&mut nuon::Ui),
     ) {
         let selected = self
             .state
@@ -541,6 +542,24 @@ impl super::MenuScene {
             let input = self.state.inputs[i].clone();
             ctx.config.set_input(Some(&input));
             self.state.selected_input = Some(input);
+        }
+
+        spacer(ui);
+
+        if nuon::settings_row_toggler()
+            .title(locals::settings::play_along_by_default())
+            .subtitle(locals::settings::play_along_by_default_subtitle())
+            .value(ctx.config.play_along_by_default())
+            .build(ui, rows)
+        {
+            ctx.config
+                .set_play_along_by_default(!ctx.config.play_along_by_default());
+
+            // The song picked before the change follows it too.
+            let player = PlayerConfig::default_for(ctx);
+            if let Some(song) = self.state.song.as_mut() {
+                song.set_player(player);
+            }
         }
     }
 
