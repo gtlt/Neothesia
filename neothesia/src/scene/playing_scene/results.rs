@@ -57,7 +57,7 @@ impl Results {
                     .build(ui);
 
                 nuon::label()
-                    .text(locals::playing::results_caption())
+                    .text(locals::t().playing.results_caption)
                     .font_size(17.0 * u)
                     .color([190, 188, 198])
                     .pos(0.0, 102.0 * u)
@@ -86,17 +86,17 @@ impl Results {
                     (
                         ResultsAction::PlayAgain,
                         icons::replay_icon(),
-                        locals::playing::play_again(),
+                        locals::t().playing.play_again,
                     ),
                     (
                         ResultsAction::Listen,
                         icons::ear_icon(),
-                        locals::playing::listen(),
+                        locals::t().playing.listen,
                     ),
                     (
                         ResultsAction::Menu,
                         icons::left_arrow_icon(),
-                        locals::playing::menu(),
+                        locals::t().playing.menu,
                     ),
                 ];
 
@@ -161,7 +161,7 @@ fn button(
     h: f32,
     u: f32,
     icon: &str,
-    caption: String,
+    caption: &'static str,
     is_main: bool,
 ) -> bool {
     let event = nuon::click_area(nuon::Id::hash(("results_button", id)))

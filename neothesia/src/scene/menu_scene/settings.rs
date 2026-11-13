@@ -100,7 +100,7 @@ impl KeyboardSize {
             Self::Keys88 => locals::settings::keys(88),
             Self::Keys76 => locals::settings::keys(76),
             Self::Keys61 => locals::settings::keys(61),
-            Self::Custom => locals::settings::custom(),
+            Self::Custom => locals::t().settings.custom.to_string(),
         }
     }
 }
@@ -203,10 +203,10 @@ fn note_naming_row(
     let labels: Vec<String> = namings
         .iter()
         .map(|naming| match naming {
-            NoteNaming::Octaves => locals::settings::note_naming_octaves(),
-            NoteNaming::Letters => locals::settings::note_naming_letters(),
-            NoteNaming::Solfege => locals::settings::note_naming_solfege(),
-            NoteNaming::Latin => locals::settings::note_naming_latin(),
+            NoteNaming::Octaves => locals::t().settings.note_naming_octaves.to_string(),
+            NoteNaming::Letters => locals::t().settings.note_naming_letters.to_string(),
+            NoteNaming::Solfege => locals::t().settings.note_naming_solfege.to_string(),
+            NoteNaming::Latin => locals::t().settings.note_naming_latin.to_string(),
         })
         .collect();
 
@@ -291,19 +291,19 @@ impl super::MenuScene {
                     .add_to_current(ui);
                 nuon::translate().y(margin_top).add_to_current(ui);
 
-                nuon::settings_section(locals::settings::output())
+                nuon::settings_section(locals::t().settings.output)
                     .width(body_w)
                     .build(ui, |ui, rows, spacer| {
                         self.settings_output_section(ctx, ui, rows, spacer);
                     });
 
-                nuon::settings_section(locals::settings::input())
+                nuon::settings_section(locals::t().settings.input)
                     .width(body_w)
                     .build(ui, |ui, rows, spacer| {
                         self.settings_input_section(ctx, ui, rows, spacer);
                     });
 
-                nuon::settings_section(locals::settings::note_range())
+                nuon::settings_section(locals::t().settings.note_range)
                     .width(body_w)
                     .build(ui, |ui, rows, spacer| {
                         self.settings_keyboard_size_row(ctx, ui, rows);
@@ -323,13 +323,13 @@ impl super::MenuScene {
                 self.keyboard_layout_preview(ctx, body_w, keyboard_h, ui);
                 nuon::translate().y(keyboard_h).add_to_current(ui);
 
-                nuon::settings_section(locals::settings::waterfall())
+                nuon::settings_section(locals::t().settings.waterfall)
                     .width(body_w)
                     .build(ui, |ui, rows, spacer| {
                         if render_toggler()
                             .icon(icons::octave_lines_icon())
-                            .title(locals::settings::octave_lines())
-                            .subtitle(locals::settings::octave_lines_subtitle())
+                            .title(locals::t().settings.octave_lines)
+                            .subtitle(locals::t().settings.octave_lines_subtitle)
                             .value(ctx.config.vertical_guidelines())
                             .build(ui, rows)
                         {
@@ -341,8 +341,8 @@ impl super::MenuScene {
 
                         if render_toggler()
                             .icon(icons::bar_lines_icon())
-                            .title(locals::settings::bar_lines())
-                            .subtitle(locals::settings::bar_lines_subtitle())
+                            .title(locals::t().settings.bar_lines)
+                            .subtitle(locals::t().settings.bar_lines_subtitle)
                             .value(ctx.config.horizontal_guidelines())
                             .build(ui, rows)
                         {
@@ -354,8 +354,8 @@ impl super::MenuScene {
 
                         if render_toggler()
                             .icon(icons::note_names_icon())
-                            .title(locals::settings::note_names())
-                            .subtitle(locals::settings::note_names_subtitle())
+                            .title(locals::t().settings.note_names)
+                            .subtitle(locals::t().settings.note_names_subtitle)
                             .value(ctx.config.note_labels())
                             .build(ui, rows)
                         {
@@ -370,8 +370,8 @@ impl super::MenuScene {
                                 rows,
                                 nuon::settings_row_dropdown()
                                     .id("select_waterfall_note_naming")
-                                    .title(locals::settings::naming_style())
-                                    .subtitle(locals::settings::naming_style_waterfall_subtitle()),
+                                    .title(locals::t().settings.naming_style)
+                                    .subtitle(locals::t().settings.naming_style_waterfall_subtitle),
                                 &[NoteNaming::Letters, NoteNaming::Solfege, NoteNaming::Latin],
                                 ctx.config.waterfall_note_naming(),
                             ) {
@@ -380,13 +380,13 @@ impl super::MenuScene {
                         }
                     });
 
-                nuon::settings_section(locals::settings::keyboard())
+                nuon::settings_section(locals::t().settings.keyboard)
                     .width(body_w)
                     .build(ui, |ui, rows, spacer| {
                         if render_toggler()
                             .icon(icons::key_glow_icon())
-                            .title(locals::settings::key_glow())
-                            .subtitle(locals::settings::key_glow_subtitle())
+                            .title(locals::t().settings.key_glow)
+                            .subtitle(locals::t().settings.key_glow_subtitle)
                             .value(ctx.config.glow())
                             .build(ui, rows)
                         {
@@ -397,8 +397,8 @@ impl super::MenuScene {
 
                         if render_toggler()
                             .icon(icons::chord_name_icon())
-                            .title(locals::settings::chord_name())
-                            .subtitle(locals::settings::chord_name_subtitle())
+                            .title(locals::t().settings.chord_name)
+                            .subtitle(locals::t().settings.chord_name_subtitle)
                             .value(ctx.config.chord_identifier())
                             .build(ui, rows)
                         {
@@ -413,8 +413,8 @@ impl super::MenuScene {
                             rows,
                             nuon::settings_row_dropdown()
                                 .id("select_keyboard_note_naming")
-                                .title(locals::settings::naming_style())
-                                .subtitle(locals::settings::naming_style_keyboard_subtitle()),
+                                .title(locals::t().settings.naming_style)
+                                .subtitle(locals::t().settings.naming_style_keyboard_subtitle),
                             &[
                                 NoteNaming::Octaves,
                                 NoteNaming::Letters,
@@ -451,7 +451,7 @@ impl super::MenuScene {
 
         if let Some(i) = nuon::settings_row_dropdown()
             .id("select_output")
-            .title(locals::settings::output())
+            .title(locals::t().settings.output)
             .items(&self.state.outputs)
             .selected(selected)
             .build(ui, rows)
@@ -473,7 +473,7 @@ impl super::MenuScene {
             spacer(ui);
 
             nuon::settings_row()
-                .title(locals::settings::soundfont())
+                .title(locals::t().settings.soundfont)
                 .subtitle(
                     ctx.config
                         .soundfont_path()
@@ -483,7 +483,7 @@ impl super::MenuScene {
                         .unwrap_or_default(),
                 )
                 .body(|ui, row_w, row_h| {
-                    if setting_row_button(ui, row_w, row_h, locals::settings::select_file())
+                    if setting_row_button(ui, row_w, row_h, locals::t().settings.select_file)
                         .build(ui)
                     {
                         self.futures
@@ -497,7 +497,7 @@ impl super::MenuScene {
             self::update_audio_gain(
                 ctx,
                 nuon::settings_row_spin()
-                    .title(locals::settings::audio_gain())
+                    .title(locals::t().settings.audio_gain)
                     .subtitle(ctx.config.audio_gain().to_string())
                     .id("gain")
                     .build(ui, rows),
@@ -506,8 +506,8 @@ impl super::MenuScene {
             spacer(ui);
 
             if nuon::settings_row_toggler()
-                .title(locals::settings::separate_channels())
-                .subtitle(locals::settings::separate_channels_subtitle())
+                .title(locals::t().settings.separate_channels)
+                .subtitle(locals::t().settings.separate_channels_subtitle)
                 .value(ctx.config.separate_channels())
                 .build(ui, rows)
             {
@@ -534,7 +534,7 @@ impl super::MenuScene {
 
         if let Some(i) = nuon::settings_row_dropdown()
             .id("select_input")
-            .title(locals::settings::input())
+            .title(locals::t().settings.input)
             .items(&self.state.inputs)
             .selected(selected)
             .build(ui, rows)
@@ -547,8 +547,8 @@ impl super::MenuScene {
         spacer(ui);
 
         if nuon::settings_row_toggler()
-            .title(locals::settings::play_along_by_default())
-            .subtitle(locals::settings::play_along_by_default_subtitle())
+            .title(locals::t().settings.play_along_by_default)
+            .subtitle(locals::t().settings.play_along_by_default_subtitle)
             .value(ctx.config.play_along_by_default())
             .build(ui, rows)
         {
@@ -567,9 +567,9 @@ impl super::MenuScene {
         self::update_input_min_velocity(
             ctx,
             nuon::settings_row_spin()
-                .title(locals::settings::input_min_velocity())
+                .title(locals::t().settings.input_min_velocity)
                 .subtitle(match ctx.config.input_min_velocity() {
-                    0 => locals::settings::off(),
+                    0 => locals::t().settings.off.to_string(),
                     velocity => velocity.to_string(),
                 })
                 .id("input-min-velocity")
@@ -584,7 +584,7 @@ impl super::MenuScene {
         rows: &dyn Fn(&mut nuon::Ui, nuon::SettingsRow<'_>),
     ) {
         nuon::settings_row()
-            .title(locals::settings::keyboard_size())
+            .title(locals::t().settings.keyboard_size)
             .body(|ui, row_w, row_h| {
                 let labels: Vec<_> = KeyboardSize::ALL.iter().map(|size| size.label()).collect();
                 let selected_idx = KeyboardSize::ALL
@@ -619,7 +619,7 @@ impl super::MenuScene {
             ctx,
             &mut self.state.range_detection,
             nuon::settings_row_spin()
-                .title(locals::settings::range_start())
+                .title(locals::t().settings.range_start)
                 .subtitle(ctx.config.piano_range().start().to_string())
                 .id("range-start")
                 .build(ui, rows),
@@ -631,7 +631,7 @@ impl super::MenuScene {
             ctx,
             &mut self.state.range_detection,
             nuon::settings_row_spin()
-                .title(locals::settings::range_end())
+                .title(locals::t().settings.range_end)
                 .subtitle(ctx.config.piano_range().end().to_string())
                 .id("range-end")
                 .build(ui, rows),
@@ -648,14 +648,14 @@ impl super::MenuScene {
     ) {
         let (title, subtitle, btn_label) = match &self.state.range_detection {
             RangeDetection::Idle => (
-                locals::settings::auto_detect(),
-                locals::settings::auto_detect_subtitle(),
-                locals::settings::detect(),
+                locals::t().settings.auto_detect.to_string(),
+                locals::t().settings.auto_detect_subtitle,
+                locals::t().settings.detect,
             ),
             RangeDetection::WaitingForKeys { keys } => (
                 locals::settings::detection_in_progress(keys.len(), 2),
-                locals::settings::detection_subtitle(),
-                locals::settings::cancel(),
+                locals::t().settings.detection_subtitle,
+                locals::t().settings.cancel,
             ),
         };
 

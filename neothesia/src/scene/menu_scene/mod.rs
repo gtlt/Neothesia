@@ -119,7 +119,7 @@ impl MenuScene {
             nuon::label()
                 .size(width, height)
                 .font_size(30.0)
-                .text(locals::menu::loading())
+                .text(locals::t().menu.loading)
                 .text_justify(nuon::TextAlign::Center)
                 .build(&mut self.nuon);
             return;
@@ -155,7 +155,7 @@ impl MenuScene {
             .y(nuon::center_y(win_h, full_h))
             .build(ui, |ui| {
                 nuon::label()
-                    .text(locals::menu::exit_question())
+                    .text(locals::t().menu.exit_question)
                     .font_size(30.0)
                     .size(full_w, text_h)
                     .build(ui);
@@ -164,7 +164,7 @@ impl MenuScene {
 
                 if neo_btn()
                     .size(btn_w, btn_h)
-                    .label(locals::menu::no())
+                    .label(locals::t().menu.no)
                     .build(ui)
                 {
                     self.state.go_back();
@@ -175,7 +175,7 @@ impl MenuScene {
 
                 if neo_btn()
                     .size(btn_w, btn_h)
-                    .label(locals::menu::yes())
+                    .label(locals::t().menu.yes)
                     .build(ui)
                 {
                     ctx.proxy.send_event(NeothesiaEvent::Exit).ok();
@@ -210,7 +210,7 @@ impl MenuScene {
                     .build(ui, |ui| {
                         if neo_btn()
                             .size(w, h)
-                            .label(locals::menu::select_file())
+                            .label(locals::t().menu.select_file)
                             .build(ui)
                         {
                             self.futures
@@ -221,7 +221,7 @@ impl MenuScene {
 
                         if neo_btn()
                             .size(w, h)
-                            .label(locals::menu::settings())
+                            .label(locals::t().menu.settings)
                             .build(ui)
                         {
                             self.state.go_to(Page::Settings);
@@ -229,7 +229,7 @@ impl MenuScene {
 
                         nuon::translate().y(h + gap).add_to_current(ui);
 
-                        if neo_btn().size(w, h).label(locals::menu::exit()).build(ui) {
+                        if neo_btn().size(w, h).label(locals::t().menu.exit).build(ui) {
                             self.state.go_back();
                         }
                     });
@@ -258,7 +258,7 @@ impl MenuScene {
                     .size(btn_w, btn_h)
                     .icon(icons::balloon_icon())
                     .color([100; 3])
-                    .tooltip(locals::menu::freeplay())
+                    .tooltip(locals::t().menu.freeplay)
                     .build(ui)
                 {
                     state::freeplay(&self.state, ctx);
@@ -275,7 +275,7 @@ impl MenuScene {
                 if neo_btn()
                     .size(btn_w, btn_h)
                     .icon(icons::play_icon())
-                    .tooltip(locals::menu::play())
+                    .tooltip(locals::t().menu.play)
                     .build(ui)
                 {
                     state::play(&self.state, ctx);
@@ -286,7 +286,7 @@ impl MenuScene {
                 if neo_btn()
                     .size(btn_w, btn_h)
                     .icon(icons::note_list_icon())
-                    .tooltip(locals::menu::tracks())
+                    .tooltip(locals::t().menu.tracks)
                     .build(ui)
                 {
                     self.state.go_to(Page::TrackSelection);

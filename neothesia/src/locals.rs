@@ -1,619 +1,541 @@
-use std::sync::LazyLock;
+//! Translated texts: one table per language, so adding a language is one block.
+//!
+//! A language lists only what it translates and takes the rest from English.
+//! Texts with a value in them hold `{}` placeholders and are filled by the
+//! functions of their section module.
 
-static LOCAL: LazyLock<String> = LazyLock::new(|| {
-    let locale = sys_locale::get_locale().unwrap_or_else(|| "en-US".to_string());
-    // sys_locale says that this is suposed to be a BCP 47 tag, so I supose this split is fine
-    // eg. "pl-PL" -> "pl"
-    locale.split('-').next().unwrap_or("en").to_lowercase()
-});
+use std::{fmt::Display, path::Path, sync::LazyLock};
 
-pub mod menu {
-    use super::LOCAL;
+pub struct Texts {
+    pub menu: MenuTexts,
+    pub freeplay: FreeplayTexts,
+    pub settings: SettingsTexts,
+    pub playing: PlayingTexts,
+}
 
-    pub fn exit_question() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Czy chcesz wyjść?".into(),
-            "de" => "Möchtest Du die App verlassen?".into(),
-            "fr" => "Voulez-vous quitter ?".into(),
-            _ => "Do you want to exit?".into(),
-        }
-    }
+pub struct MenuTexts {
+    pub exit_question: &'static str,
+    pub no: &'static str,
+    pub yes: &'static str,
+    pub loading: &'static str,
+    pub select_file: &'static str,
+    pub settings: &'static str,
+    pub exit: &'static str,
+    pub freeplay: &'static str,
+    pub play: &'static str,
+    pub tracks: &'static str,
+}
 
-    pub fn no() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Nie".into(),
-            "de" => "Nein".into(),
-            "fr" => "Non".into(),
-            _ => "No".into(),
-        }
-    }
+pub struct FreeplayTexts {
+    pub no_note_events_recorded: &'static str,
+    pub failed_to_write_midi_file: &'static str,
+    pub recording: &'static str,
+    pub recorded: &'static str,
+    pub saved_recording_to: &'static str,
+}
 
-    pub fn yes() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Tak".into(),
-            "de" => "Ja".into(),
-            "fr" => "Oui".into(),
-            _ => "Yes".into(),
-        }
-    }
+pub struct SettingsTexts {
+    pub output: &'static str,
+    pub input: &'static str,
+    pub play_along_by_default: &'static str,
+    pub play_along_by_default_subtitle: &'static str,
+    pub input_min_velocity: &'static str,
+    pub off: &'static str,
+    pub note_range: &'static str,
+    pub keyboard_size: &'static str,
+    pub keys: &'static str,
+    pub custom: &'static str,
+    pub range_start: &'static str,
+    pub range_end: &'static str,
+    pub waterfall: &'static str,
+    pub keyboard: &'static str,
+    pub octave_lines: &'static str,
+    pub octave_lines_subtitle: &'static str,
+    pub bar_lines: &'static str,
+    pub bar_lines_subtitle: &'static str,
+    pub note_names: &'static str,
+    pub note_names_subtitle: &'static str,
+    pub naming_style: &'static str,
+    pub naming_style_keyboard_subtitle: &'static str,
+    pub naming_style_waterfall_subtitle: &'static str,
+    pub note_naming_octaves: &'static str,
+    pub note_naming_letters: &'static str,
+    pub note_naming_solfege: &'static str,
+    pub note_naming_latin: &'static str,
+    pub key_glow: &'static str,
+    pub key_glow_subtitle: &'static str,
+    pub chord_name: &'static str,
+    pub chord_name_subtitle: &'static str,
+    pub soundfont: &'static str,
+    pub select_file: &'static str,
+    pub audio_gain: &'static str,
+    pub separate_channels: &'static str,
+    pub separate_channels_subtitle: &'static str,
+    pub auto_detect: &'static str,
+    pub auto_detect_subtitle: &'static str,
+    pub detect: &'static str,
+    pub detection_subtitle: &'static str,
+    pub cancel: &'static str,
+    pub detection_in_progress: &'static str,
+}
 
-    pub fn loading() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Ładowanie...".into(),
-            "de" => "Wird geladen...".into(),
-            "fr" => "Chargement...".into(),
-            _ => "Loading...".into(),
-        }
-    }
+pub struct PlayingTexts {
+    pub speed: &'static str,
+    pub animation_speed: &'static str,
+    pub offset: &'static str,
+    /// Shown while the app plays the song for the player to hear it
+    pub listening: &'static str,
+    /// Shown when the player takes over
+    pub your_turn: &'static str,
+    /// Goes under "12 / 16"
+    pub results_caption: &'static str,
+    pub results_previous: &'static str,
+    pub play_again: &'static str,
+    pub listen: &'static str,
+    pub menu: &'static str,
+}
 
-    pub fn select_file() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wybierz plik".into(),
-            "de" => "Datei auswählen".into(),
-            "fr" => "Choisir un fichier".into(),
-            _ => "Select File".into(),
-        }
-    }
+const EN: Texts = Texts {
+    menu: MenuTexts {
+        exit_question: "Do you want to exit?",
+        no: "No",
+        yes: "Yes",
+        loading: "Loading...",
+        select_file: "Select File",
+        settings: "Settings",
+        exit: "Exit",
+        freeplay: "FreePlay",
+        play: "Play",
+        tracks: "Tracks",
+    },
+    freeplay: FreeplayTexts {
+        no_note_events_recorded: "No note events recorded",
+        failed_to_write_midi_file: "Failed to write MIDI file",
+        recording: "Recording {}s",
+        recorded: "Recorded {}s",
+        saved_recording_to: "Saved recording to {}",
+    },
+    settings: SettingsTexts {
+        output: "Output",
+        input: "Input",
+        play_along_by_default: "Play Along by Default",
+        play_along_by_default_subtitle: "New songs wait until you play the right keys",
+        input_min_velocity: "Minimum Key Velocity",
+        off: "Off",
+        note_range: "Note Range",
+        keyboard_size: "Keyboard Size",
+        keys: "{} Keys",
+        custom: "Custom",
+        range_start: "Start",
+        range_end: "End",
+        waterfall: "Waterfall",
+        keyboard: "Keyboard",
+        octave_lines: "Octave Lines",
+        octave_lines_subtitle: "Vertical lines at every C and F to help you find keys",
+        bar_lines: "Bar Lines",
+        bar_lines_subtitle: "Horizontal line at the start of each measure",
+        note_names: "Note Names",
+        note_names_subtitle: "Show the note name on each falling note",
+        naming_style: "Naming Style",
+        naming_style_keyboard_subtitle: "Choose how the keys are labeled",
+        naming_style_waterfall_subtitle: "Choose how falling notes are labeled",
+        note_naming_octaves: "Octaves",
+        note_naming_letters: "English Note Names (C, C#, D)",
+        note_naming_solfege: "Solfege (Do, Di, Mi)",
+        note_naming_latin: "Latin (Do, Re, Mi)",
+        key_glow: "Key Glow",
+        key_glow_subtitle: "Light up keys as they are played",
+        chord_name: "Chord Name",
+        chord_name_subtitle: "Name the chord you are playing above the keys",
+        soundfont: "SoundFont",
+        select_file: "Select File",
+        audio_gain: "Audio Gain",
+        separate_channels: "Separate Channels",
+        separate_channels_subtitle: "Assign different MIDI channel to each track",
+        auto_detect: "Auto-detect",
+        auto_detect_subtitle: "Auto-detect range from connected keyboard",
+        detect: "Detect",
+        detection_subtitle: "Play the far-left and far-right key on your keyboard...",
+        cancel: "Cancel",
+        detection_in_progress: "Detection in progress... Step {}/{}",
+    },
+    playing: PlayingTexts {
+        speed: "Speed: {}",
+        animation_speed: "Animation Speed: {}",
+        offset: "Offset: {}",
+        listening: "Listen",
+        your_turn: "Your turn",
+        results_caption: "notes right at the first try",
+        results_previous: "Last time: {}",
+        play_again: "Play again",
+        listen: "Listen",
+        menu: "Menu",
+    },
+};
 
-    pub fn settings() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Ustawienia".into(),
-            "de" => "Einstellungen".into(),
-            "fr" => "Paramètres".into(),
-            _ => "Settings".into(),
-        }
-    }
+const PL: Texts = Texts {
+    menu: MenuTexts {
+        exit_question: "Czy chcesz wyjść?",
+        no: "Nie",
+        yes: "Tak",
+        loading: "Ładowanie...",
+        select_file: "Wybierz plik",
+        settings: "Ustawienia",
+        exit: "Wyjdź",
+        freeplay: "Swobodna gra",
+        play: "Graj",
+        tracks: "Ścieżki",
+    },
+    freeplay: FreeplayTexts {
+        no_note_events_recorded: "Nie nagrano żadnych nut",
+        failed_to_write_midi_file: "Nie udało się zapisać pliku MIDI",
+        recording: "Nagrywanie {}s",
+        recorded: "Nagrano {}s",
+        saved_recording_to: "Zapisano nagranie w {}",
+    },
+    settings: SettingsTexts {
+        output: "Wyjście",
+        input: "Wejście",
+        off: "Wyłączone",
+        note_range: "Zakres nut",
+        keyboard_size: "Rozmiar klawiatury",
+        keys: "{} klawiszy",
+        custom: "Własny",
+        range_start: "Początek",
+        range_end: "Koniec",
+        waterfall: "Wodospad",
+        keyboard: "Klawiatura",
+        octave_lines: "Linie oktaw",
+        octave_lines_subtitle: "Pionowe linie przy każdym C i F, ułatwiające odnalezienie klawiszy",
+        bar_lines: "Linie taktów",
+        bar_lines_subtitle: "Pozioma linia na początku każdego taktu",
+        note_names: "Nazwy nut",
+        note_names_subtitle: "Wyświetlaj nazwę nuty na każdej opadającej nucie",
+        naming_style: "Styl nazw",
+        naming_style_keyboard_subtitle: "Wybierz sposób nazywania klawiszy",
+        naming_style_waterfall_subtitle: "Wybierz sposób nazywania opadających nut",
+        note_naming_octaves: "Oktawy",
+        note_naming_letters: "Angielskie nazwy nut (C, C#, D)",
+        note_naming_solfege: "Solfeż (Do, Di, Mi)",
+        note_naming_latin: "Łacińskie (Do, Re, Mi)",
+        key_glow: "Poświata klawiszy",
+        key_glow_subtitle: "Podświetlaj klawisze podczas gry",
+        chord_name: "Nazwa akordu",
+        chord_name_subtitle: "Wyświetlaj nazwę granego akordu nad klawiszami",
+        select_file: "Wybierz plik",
+        audio_gain: "Wzmocnienie dźwięku",
+        separate_channels: "Oddzielne kanały",
+        separate_channels_subtitle: "Przypisz osobny kanał MIDI do każdej ścieżki",
+        auto_detect: "Automatyczne wykrywanie",
+        auto_detect_subtitle: "Automatycznie wykryj zakres podłączonej klawiatury",
+        detect: "Wykryj",
+        detection_subtitle: "Naciśnij skrajnie lewy i skrajnie prawy klawisz na klawiaturze...",
+        cancel: "Anuluj",
+        detection_in_progress: "Wykrywanie w toku... Krok {}/{}",
+        ..EN.settings
+    },
+    playing: PlayingTexts {
+        speed: "Prędkość: {}",
+        animation_speed: "Prędkość animacji: {}",
+        offset: "Przesunięcie: {}",
+        ..EN.playing
+    },
+};
 
-    pub fn exit() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wyjdź".into(),
-            "de" => "Beenden".into(),
-            "fr" => "Quitter".into(),
-            _ => "Exit".into(),
-        }
-    }
+const DE: Texts = Texts {
+    menu: MenuTexts {
+        exit_question: "Möchtest Du die App verlassen?",
+        no: "Nein",
+        yes: "Ja",
+        loading: "Wird geladen...",
+        select_file: "Datei auswählen",
+        settings: "Einstellungen",
+        exit: "Beenden",
+        freeplay: "Freies Spiel",
+        play: "Abspielen",
+        tracks: "Stücke",
+    },
+    freeplay: FreeplayTexts {
+        no_note_events_recorded: "Keine Notenereignisse aufgezeichnet",
+        failed_to_write_midi_file: "MIDI-Datei konnte nicht geschrieben werden",
+        recording: "Aufnahme läuft ({} s)",
+        recorded: "Aufnahme abgeschlossen ({} s)",
+        saved_recording_to: "Aufnahme gespeichert unter: {}",
+    },
+    settings: SettingsTexts {
+        output: "Ausgang",
+        input: "Eingang",
+        play_along_by_default: "Standardmäßig mitspielen",
+        play_along_by_default_subtitle: "Neue Stücke warten, bis Du die richtigen Tasten spielst",
+        input_min_velocity: "Mindest-Anschlagstärke",
+        off: "Aus",
+        note_range: "Notenumfang",
+        keyboard_size: "Tastaturgröße",
+        keys: "{} Tasten",
+        custom: "Eigene",
+        range_end: "Ende",
+        waterfall: "Wasserfall",
+        keyboard: "Tastatur",
+        octave_lines: "Oktavlinien",
+        octave_lines_subtitle: "Vertikale Linien bei jedem C und F zur Orientierung",
+        bar_lines: "Taktstriche",
+        bar_lines_subtitle: "Horizontale Linie am Anfang jedes Takts",
+        note_names: "Notennamen",
+        note_names_subtitle: "Notennamen auf jeder fallenden Note anzeigen",
+        naming_style: "Benennungsstil",
+        naming_style_keyboard_subtitle: "Wähle, wie die Tasten beschriftet werden",
+        naming_style_waterfall_subtitle: "Wähle, wie fallende Noten beschriftet werden",
+        note_naming_octaves: "Oktaven",
+        note_naming_letters: "Englische Notennamen (C, C#, D)",
+        note_naming_solfege: "Solfège (Do, Di, Mi)",
+        note_naming_latin: "Lateinisch (Do, Re, Mi)",
+        key_glow: "Tastenleuchten",
+        key_glow_subtitle: "Tasten beim Spielen aufleuchten lassen",
+        chord_name: "Akkordname",
+        chord_name_subtitle: "Gespielten Akkord über den Tasten anzeigen",
+        select_file: "Datei auswählen",
+        audio_gain: "Audio-Verstärkung",
+        separate_channels: "Kanäle trennen",
+        separate_channels_subtitle: "Jeder Spur einen eigenen MIDI-Kanal zuweisen",
+        auto_detect: "Automatische Erkennung",
+        auto_detect_subtitle: "Tonumfang vom angeschlossenen Keyboard automatisch erkennen",
+        detect: "Erkennen",
+        detection_subtitle: "Spiele die ganz linke und die ganz rechts liegende Taste auf Deinem Keyboard...",
+        cancel: "Abbrechen",
+        detection_in_progress: "Erkennung läuft... Schritt {}/{}",
+        ..EN.settings
+    },
+    playing: PlayingTexts {
+        speed: "Geschwindigkeit: {}",
+        animation_speed: "Animationsgeschwindigkeit: {}",
+        ..EN.playing
+    },
+};
 
-    pub fn freeplay() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Swobodna gra".into(),
-            "de" => "Freies Spiel".into(),
-            "fr" => "Jeu libre".into(),
-            _ => "FreePlay".into(),
-        }
-    }
-
-    pub fn play() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Graj".into(),
-            "de" => "Abspielen".into(),
-            "fr" => "Jouer".into(),
-            _ => "Play".into(),
-        }
-    }
-
-    pub fn tracks() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Ścieżki".into(),
-            "de" => "Stücke".into(),
-            "fr" => "Pistes".into(),
-            _ => "Tracks".into(),
-        }
+const FR: Texts = Texts {
+    menu: MenuTexts {
+        exit_question: "Voulez-vous quitter ?",
+        no: "Non",
+        yes: "Oui",
+        loading: "Chargement...",
+        select_file: "Choisir un fichier",
+        settings: "Paramètres",
+        exit: "Quitter",
+        freeplay: "Jeu libre",
+        play: "Jouer",
+        tracks: "Pistes",
+    },
+    freeplay: FreeplayTexts {
+        no_note_events_recorded: "Aucune note enregistrée",
+        failed_to_write_midi_file: "Impossible d'écrire le fichier MIDI",
+        recording: "Enregistrement {} s",
+        recorded: "Enregistré {} s",
+        saved_recording_to: "Enregistrement sauvegardé : {}",
+    },
+    settings: SettingsTexts {
+        output: "Sortie",
+        input: "Entrée",
+        play_along_by_default: "Attendre mes touches",
+        play_along_by_default_subtitle: "Les nouveaux morceaux attendent la bonne touche pour avancer",
+        input_min_velocity: "Force de frappe minimale",
+        off: "Désactivée",
+        note_range: "Plage de notes",
+        keyboard_size: "Taille du clavier",
+        keys: "{} touches",
+        custom: "Personnalisée",
+        range_start: "Début",
+        range_end: "Fin",
+        waterfall: "Cascade",
+        keyboard: "Clavier",
+        octave_lines: "Lignes d'octave",
+        octave_lines_subtitle: "Lignes verticales à chaque do et fa pour repérer les touches",
+        bar_lines: "Barres de mesure",
+        bar_lines_subtitle: "Ligne horizontale au début de chaque mesure",
+        note_names: "Nom des notes",
+        note_names_subtitle: "Afficher le nom de la note sur chaque note qui tombe",
+        naming_style: "Notation",
+        naming_style_keyboard_subtitle: "Choisir comment les touches sont nommées",
+        naming_style_waterfall_subtitle: "Choisir comment les notes qui tombent sont nommées",
+        note_naming_letters: "Notation anglaise (C, C#, D)",
+        note_naming_solfege: "Solfège (Do, Di, Mi)",
+        note_naming_latin: "Notation latine (Do, Re, Mi)",
+        key_glow: "Halo des touches",
+        key_glow_subtitle: "Illuminer les touches quand elles sont jouées",
+        chord_name: "Nom de l'accord",
+        chord_name_subtitle: "Afficher le nom de l'accord joué au-dessus des touches",
+        select_file: "Choisir un fichier",
+        audio_gain: "Gain audio",
+        separate_channels: "Canaux séparés",
+        separate_channels_subtitle: "Attribuer un canal MIDI différent à chaque piste",
+        auto_detect: "Détection automatique",
+        auto_detect_subtitle: "Détecter la plage du clavier connecté",
+        detect: "Détecter",
+        detection_subtitle: "Jouez la touche la plus à gauche puis la plus à droite de votre clavier...",
+        cancel: "Annuler",
+        detection_in_progress: "Détection en cours... Étape {}/{}",
+        ..EN.settings
+    },
+    playing: PlayingTexts {
+        speed: "Vitesse : {}",
+        animation_speed: "Vitesse de l'animation : {}",
+        offset: "Décalage : {}",
+        listening: "Écoute",
+        your_turn: "À toi",
+        results_caption: "notes justes du premier coup",
+        results_previous: "La fois d'avant : {}",
+        play_again: "Rejouer",
+        listen: "Écouter",
+        ..EN.playing
+    },
+};
+/// Maps a BCP 47 locale such as "pl-PL" to the table of its language.
+fn texts_for_locale(locale: &str) -> &'static Texts {
+    match locale
+        .split('-')
+        .next()
+        .unwrap_or("en")
+        .to_lowercase()
+        .as_str()
+    {
+        "pl" => &PL,
+        "de" => &DE,
+        "fr" => &FR,
+        _ => &EN,
     }
 }
 
+/// The texts in the language of the user.
+pub fn t() -> &'static Texts {
+    static TEXTS: LazyLock<&'static Texts> = LazyLock::new(|| {
+        let locale = sys_locale::get_locale().unwrap_or_else(|| "en-US".to_string());
+        texts_for_locale(&locale)
+    });
+
+    *TEXTS
+}
+
+/// Replaces each `{}` of `template`, in order, with the matching argument.
+fn fill(template: &str, args: &[&dyn Display]) -> String {
+    let mut parts = template.split("{}");
+    let mut out = parts.next().unwrap_or_default().to_string();
+    for (arg, part) in args.iter().zip(parts) {
+        out.push_str(&arg.to_string());
+        out.push_str(part);
+    }
+    out
+}
+
 pub mod freeplay {
-    use super::LOCAL;
-    use std::path::Path;
-
-    pub fn no_note_events_recorded() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Nie nagrano żadnych nut".into(),
-            "de" => "Keine Notenereignisse aufgezeichnet".into(),
-            "fr" => "Aucune note enregistrée".into(),
-            _ => "No note events recorded".into(),
-        }
-    }
-
-    pub fn failed_to_write_midi_file() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Nie udało się zapisać pliku MIDI".into(),
-            "de" => "MIDI-Datei konnte nicht geschrieben werden".into(),
-            "fr" => "Impossible d'écrire le fichier MIDI".into(),
-            _ => "Failed to write MIDI file".into(),
-        }
-    }
+    use super::*;
 
     pub fn recording(seconds: f32) -> String {
-        match LOCAL.as_str() {
-            "pl" => format!("Nagrywanie {seconds:.1}s"),
-            "de" => format!("Aufnahme läuft ({seconds:.1} s)"),
-            "fr" => format!("Enregistrement {seconds:.1} s"),
-            _ => format!("Recording {seconds:.1}s"),
-        }
+        fill(t().freeplay.recording, &[&format!("{seconds:.1}")])
     }
 
     pub fn recorded(seconds: f32) -> String {
-        match LOCAL.as_str() {
-            "pl" => format!("Nagrano {seconds:.1}s"),
-            "de" => format!("Aufnahme abgeschlossen ({seconds:.1} s)"),
-            "fr" => format!("Enregistré {seconds:.1} s"),
-            _ => format!("Recorded {seconds:.1}s"),
-        }
+        fill(t().freeplay.recorded, &[&format!("{seconds:.1}")])
     }
 
     pub fn saved_recording_to(path: &Path) -> String {
-        match LOCAL.as_str() {
-            "pl" => format!("Zapisano nagranie w {}", path.display()),
-            "de" => format!("Aufnahme gespeichert unter: {}", path.display()),
-            "fr" => format!("Enregistrement sauvegardé : {}", path.display()),
-            _ => format!("Saved recording to {}", path.display()),
-        }
+        fill(t().freeplay.saved_recording_to, &[&path.display()])
     }
 }
 
 pub mod settings {
-    use super::LOCAL;
-
-    pub fn output() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wyjście".into(),
-            "de" => "Ausgang".into(),
-            "fr" => "Sortie".into(),
-            _ => "Output".into(),
-        }
-    }
-
-    pub fn input() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wejście".into(),
-            "de" => "Eingang".into(),
-            "fr" => "Entrée".into(),
-            _ => "Input".into(),
-        }
-    }
-
-    pub fn play_along_by_default() -> String {
-        match LOCAL.as_str() {
-            "de" => "Standardmäßig mitspielen".into(),
-            "fr" => "Attendre mes touches".into(),
-            _ => "Play Along by Default".into(),
-        }
-    }
-
-    pub fn play_along_by_default_subtitle() -> String {
-        match LOCAL.as_str() {
-            "de" => "Neue Stücke warten, bis Du die richtigen Tasten spielst".into(),
-            "fr" => "Les nouveaux morceaux attendent la bonne touche pour avancer".into(),
-            _ => "New songs wait until you play the right keys".into(),
-        }
-    }
-
-    pub fn input_min_velocity() -> String {
-        match LOCAL.as_str() {
-            "de" => "Mindest-Anschlagstärke".into(),
-            "fr" => "Force de frappe minimale".into(),
-            _ => "Minimum Key Velocity".into(),
-        }
-    }
-
-    pub fn off() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wyłączone".into(),
-            "de" => "Aus".into(),
-            "fr" => "Désactivée".into(),
-            _ => "Off".into(),
-        }
-    }
-
-    pub fn note_range() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Zakres nut".into(),
-            "de" => "Notenumfang".into(),
-            "fr" => "Plage de notes".into(),
-            _ => "Note Range".into(),
-        }
-    }
-
-    pub fn keyboard_size() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Rozmiar klawiatury".into(),
-            "de" => "Tastaturgröße".into(),
-            "fr" => "Taille du clavier".into(),
-            _ => "Keyboard Size".into(),
-        }
-    }
+    use super::*;
 
     pub fn keys(count: u8) -> String {
-        match LOCAL.as_str() {
-            "pl" => format!("{count} klawiszy"),
-            "de" => format!("{count} Tasten"),
-            "fr" => format!("{count} touches"),
-            _ => format!("{count} Keys"),
-        }
-    }
-
-    pub fn custom() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Własny".into(),
-            "de" => "Eigene".into(),
-            "fr" => "Personnalisée".into(),
-            _ => "Custom".into(),
-        }
-    }
-
-    pub fn range_start() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Początek".into(),
-            "de" => "Start".into(),
-            "fr" => "Début".into(),
-            _ => "Start".into(),
-        }
-    }
-
-    pub fn range_end() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Koniec".into(),
-            "de" => "Ende".into(),
-            "fr" => "Fin".into(),
-            _ => "End".into(),
-        }
-    }
-
-    pub fn waterfall() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wodospad".into(),
-            "de" => "Wasserfall".into(),
-            "fr" => "Cascade".into(),
-            _ => "Waterfall".into(),
-        }
-    }
-
-    pub fn keyboard() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Klawiatura".into(),
-            "de" => "Tastatur".into(),
-            "fr" => "Clavier".into(),
-            _ => "Keyboard".into(),
-        }
-    }
-
-    pub fn octave_lines() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Linie oktaw".into(),
-            "de" => "Oktavlinien".into(),
-            "fr" => "Lignes d'octave".into(),
-            _ => "Octave Lines".into(),
-        }
-    }
-
-    pub fn octave_lines_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Pionowe linie przy każdym C i F, ułatwiające odnalezienie klawiszy".into(),
-            "de" => "Vertikale Linien bei jedem C und F zur Orientierung".into(),
-            "fr" => "Lignes verticales à chaque do et fa pour repérer les touches".into(),
-            _ => "Vertical lines at every C and F to help you find keys".into(),
-        }
-    }
-
-    pub fn bar_lines() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Linie taktów".into(),
-            "de" => "Taktstriche".into(),
-            "fr" => "Barres de mesure".into(),
-            _ => "Bar Lines".into(),
-        }
-    }
-
-    pub fn bar_lines_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Pozioma linia na początku każdego taktu".into(),
-            "de" => "Horizontale Linie am Anfang jedes Takts".into(),
-            "fr" => "Ligne horizontale au début de chaque mesure".into(),
-            _ => "Horizontal line at the start of each measure".into(),
-        }
-    }
-
-    pub fn note_names() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Nazwy nut".into(),
-            "de" => "Notennamen".into(),
-            "fr" => "Nom des notes".into(),
-            _ => "Note Names".into(),
-        }
-    }
-
-    pub fn note_names_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wyświetlaj nazwę nuty na każdej opadającej nucie".into(),
-            "de" => "Notennamen auf jeder fallenden Note anzeigen".into(),
-            "fr" => "Afficher le nom de la note sur chaque note qui tombe".into(),
-            _ => "Show the note name on each falling note".into(),
-        }
-    }
-
-    pub fn naming_style() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Styl nazw".into(),
-            "de" => "Benennungsstil".into(),
-            "fr" => "Notation".into(),
-            _ => "Naming Style".into(),
-        }
-    }
-
-    pub fn naming_style_keyboard_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wybierz sposób nazywania klawiszy".into(),
-            "de" => "Wähle, wie die Tasten beschriftet werden".into(),
-            "fr" => "Choisir comment les touches sont nommées".into(),
-            _ => "Choose how the keys are labeled".into(),
-        }
-    }
-
-    pub fn naming_style_waterfall_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wybierz sposób nazywania opadających nut".into(),
-            "de" => "Wähle, wie fallende Noten beschriftet werden".into(),
-            "fr" => "Choisir comment les notes qui tombent sont nommées".into(),
-            _ => "Choose how falling notes are labeled".into(),
-        }
-    }
-
-    pub fn note_naming_octaves() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Oktawy".into(),
-            "de" => "Oktaven".into(),
-            "fr" => "Octaves".into(),
-            _ => "Octaves".into(),
-        }
-    }
-
-    pub fn note_naming_letters() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Angielskie nazwy nut (C, C#, D)".into(),
-            "de" => "Englische Notennamen (C, C#, D)".into(),
-            "fr" => "Notation anglaise (C, C#, D)".into(),
-            _ => "English Note Names (C, C#, D)".into(),
-        }
-    }
-
-    pub fn note_naming_solfege() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Solfeż (Do, Di, Mi)".into(),
-            "de" => "Solfège (Do, Di, Mi)".into(),
-            "fr" => "Solfège (Do, Di, Mi)".into(),
-            _ => "Solfege (Do, Di, Mi)".into(),
-        }
-    }
-
-    pub fn note_naming_latin() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Łacińskie (Do, Re, Mi)".into(),
-            "de" => "Lateinisch (Do, Re, Mi)".into(),
-            "fr" => "Notation latine (Do, Re, Mi)".into(),
-            _ => "Latin (Do, Re, Mi)".into(),
-        }
-    }
-
-    pub fn key_glow() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Poświata klawiszy".into(),
-            "de" => "Tastenleuchten".into(),
-            "fr" => "Halo des touches".into(),
-            _ => "Key Glow".into(),
-        }
-    }
-
-    pub fn key_glow_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Podświetlaj klawisze podczas gry".into(),
-            "de" => "Tasten beim Spielen aufleuchten lassen".into(),
-            "fr" => "Illuminer les touches quand elles sont jouées".into(),
-            _ => "Light up keys as they are played".into(),
-        }
-    }
-
-    pub fn chord_name() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Nazwa akordu".into(),
-            "de" => "Akkordname".into(),
-            "fr" => "Nom de l'accord".into(),
-            _ => "Chord Name".into(),
-        }
-    }
-
-    pub fn chord_name_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wyświetlaj nazwę granego akordu nad klawiszami".into(),
-            "de" => "Gespielten Akkord über den Tasten anzeigen".into(),
-            "fr" => "Afficher le nom de l'accord joué au-dessus des touches".into(),
-            _ => "Name the chord you are playing above the keys".into(),
-        }
-    }
-
-    pub fn soundfont() -> String {
-        match LOCAL.as_str() {
-            "pl" => "SoundFont".into(),
-            "de" => "SoundFont".into(),
-            "fr" => "SoundFont".into(),
-            _ => "SoundFont".into(),
-        }
-    }
-
-    pub fn select_file() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wybierz plik".into(),
-            "de" => "Datei auswählen".into(),
-            "fr" => "Choisir un fichier".into(),
-            _ => "Select File".into(),
-        }
-    }
-
-    pub fn audio_gain() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wzmocnienie dźwięku".into(),
-            "de" => "Audio-Verstärkung".into(),
-            "fr" => "Gain audio".into(),
-            _ => "Audio Gain".into(),
-        }
-    }
-
-    pub fn separate_channels() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Oddzielne kanały".into(),
-            "de" => "Kanäle trennen".into(),
-            "fr" => "Canaux séparés".into(),
-            _ => "Separate Channels".into(),
-        }
-    }
-
-    pub fn separate_channels_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Przypisz osobny kanał MIDI do każdej ścieżki".into(),
-            "de" => "Jeder Spur einen eigenen MIDI-Kanal zuweisen".into(),
-            "fr" => "Attribuer un canal MIDI différent à chaque piste".into(),
-            _ => "Assign different MIDI channel to each track".into(),
-        }
-    }
-
-    pub fn auto_detect() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Automatyczne wykrywanie".into(),
-            "de" => "Automatische Erkennung".into(),
-            "fr" => "Détection automatique".into(),
-            _ => "Auto-detect".into(),
-        }
-    }
-
-    pub fn auto_detect_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Automatycznie wykryj zakres podłączonej klawiatury".into(),
-            "de" => "Tonumfang vom angeschlossenen Keyboard automatisch erkennen".into(),
-            "fr" => "Détecter la plage du clavier connecté".into(),
-            _ => "Auto-detect range from connected keyboard".into(),
-        }
-    }
-
-    pub fn detect() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Wykryj".into(),
-            "de" => "Erkennen".into(),
-            "fr" => "Détecter".into(),
-            _ => "Detect".into(),
-        }
-    }
-
-    pub fn detection_subtitle() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Naciśnij skrajnie lewy i skrajnie prawy klawisz na klawiaturze...".into(),
-            "de" => {
-                "Spiele die ganz linke und die ganz rechts liegende Taste auf Deinem Keyboard..."
-                    .into()
-            }
-            "fr" => {
-                "Jouez la touche la plus à gauche puis la plus à droite de votre clavier...".into()
-            }
-            _ => "Play the far-left and far-right key on your keyboard...".into(),
-        }
-    }
-
-    pub fn cancel() -> String {
-        match LOCAL.as_str() {
-            "pl" => "Anuluj".into(),
-            "de" => "Abbrechen".into(),
-            "fr" => "Annuler".into(),
-            _ => "Cancel".into(),
-        }
+        fill(t().settings.keys, &[&count])
     }
 
     pub fn detection_in_progress(step: usize, total: usize) -> String {
-        match LOCAL.as_str() {
-            "pl" => format!("Wykrywanie w toku... Krok {step}/{total}"),
-            "de" => format!("Erkennung läuft... Schritt {step}/{total}"),
-            "fr" => format!("Détection en cours... Étape {step}/{total}"),
-            _ => format!("Detection in progress... Step {step}/{total}"),
-        }
+        fill(t().settings.detection_in_progress, &[&step, &total])
     }
 }
 
 pub mod playing {
-    use super::LOCAL;
+    use super::*;
 
     pub fn speed(speed: f32) -> String {
-        match LOCAL.as_str() {
-            "pl" => format!("Prędkość: {speed}"),
-            "de" => format!("Geschwindigkeit: {speed}"),
-            "fr" => format!("Vitesse : {speed}"),
-            _ => format!("Speed: {speed}"),
-        }
+        fill(t().playing.speed, &[&speed])
     }
 
     pub fn animation_speed(speed: f32) -> String {
-        match LOCAL.as_str() {
-            "pl" => format!("Prędkość animacji: {speed}"),
-            "de" => format!("Animationsgeschwindigkeit: {speed}"),
-            "fr" => format!("Vitesse de l'animation : {speed}"),
-            _ => format!("Animation Speed: {speed}"),
-        }
+        fill(t().playing.animation_speed, &[&speed])
     }
 
     pub fn offset(offset: f32) -> String {
-        match LOCAL.as_str() {
-            "pl" => format!("Przesunięcie: {offset}"),
-            "de" => format!("Offset: {offset}"),
-            "fr" => format!("Décalage : {offset}"),
-            _ => format!("Offset: {offset}"),
-        }
-    }
-
-    /// Shown while the app plays the song for the player to hear it
-    pub fn listening() -> String {
-        match LOCAL.as_str() {
-            "fr" => "Écoute".into(),
-            _ => "Listen".into(),
-        }
-    }
-
-    /// Shown when the player takes over
-    pub fn your_turn() -> String {
-        match LOCAL.as_str() {
-            "fr" => "À toi".into(),
-            _ => "Your turn".into(),
-        }
-    }
-
-    /// Goes under "12 / 16"
-    pub fn results_caption() -> String {
-        match LOCAL.as_str() {
-            "fr" => "notes justes du premier coup".into(),
-            _ => "notes right at the first try".into(),
-        }
+        fill(t().playing.offset, &[&offset])
     }
 
     pub fn results_previous(first_try: usize) -> String {
-        match LOCAL.as_str() {
-            "fr" => format!("La fois d'avant : {first_try}"),
-            _ => format!("Last time: {first_try}"),
+        fill(t().playing.results_previous, &[&first_try])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Consts have no stable address, so tables are told apart by a text
+    /// that differs in each language.
+    fn is(a: &Texts, b: &Texts) -> bool {
+        a.menu.yes == b.menu.yes
+    }
+
+    #[test]
+    fn locale_maps_to_language_table() {
+        assert!(is(texts_for_locale("fr-FR"), &FR));
+        assert!(is(texts_for_locale("fr"), &FR));
+        assert!(is(texts_for_locale("pl-PL"), &PL));
+        assert!(is(texts_for_locale("de-AT"), &DE));
+        assert!(is(texts_for_locale("en-US"), &EN));
+        assert!(is(texts_for_locale("FR-ca"), &FR));
+        assert!(is(texts_for_locale("xx-YY"), &EN));
+        assert!(is(texts_for_locale(""), &EN));
+    }
+
+    #[test]
+    fn missing_translation_falls_back_to_english() {
+        assert_eq!(PL.playing.play_again, EN.playing.play_again);
+        assert_eq!(FR.playing.play_again, "Rejouer");
+    }
+
+    #[test]
+    fn templates_keep_their_placeholders_in_every_language() {
+        type Getter = fn(&Texts) -> &'static str;
+        let templated: [(&str, Getter); 9] = [
+            ("recording", |t| t.freeplay.recording),
+            ("recorded", |t| t.freeplay.recorded),
+            ("saved_recording_to", |t| t.freeplay.saved_recording_to),
+            ("keys", |t| t.settings.keys),
+            ("detection_in_progress", |t| {
+                t.settings.detection_in_progress
+            }),
+            ("speed", |t| t.playing.speed),
+            ("animation_speed", |t| t.playing.animation_speed),
+            ("offset", |t| t.playing.offset),
+            ("results_previous", |t| t.playing.results_previous),
+        ];
+
+        for (name, get) in templated {
+            let expected = get(&EN).matches("{}").count();
+            assert!(expected > 0, "{name} has no placeholder in English");
+            for (lang, table) in [("pl", &PL), ("de", &DE), ("fr", &FR)] {
+                assert_eq!(
+                    get(table).matches("{}").count(),
+                    expected,
+                    "{name} in {lang}"
+                );
+            }
         }
     }
 
-    pub fn play_again() -> String {
-        match LOCAL.as_str() {
-            "fr" => "Rejouer".into(),
-            _ => "Play again".into(),
-        }
-    }
-
-    pub fn listen() -> String {
-        match LOCAL.as_str() {
-            "fr" => "Écouter".into(),
-            _ => "Listen".into(),
-        }
-    }
-
-    pub fn menu() -> String {
-        match LOCAL.as_str() {
-            "fr" => "Menu".into(),
-            _ => "Menu".into(),
-        }
+    #[test]
+    fn fill_formats_like_the_old_format_calls() {
+        assert_eq!(fill("Speed: {}", &[&1.25f32]), "Speed: 1.25");
+        assert_eq!(fill("Speed: {}", &[&1.0f32]), "Speed: 1");
+        assert_eq!(fill("Step {}/{}", &[&2usize, &3usize]), "Step 2/3");
+        assert_eq!(fill("{} Keys", &[&88u8]), "88 Keys");
     }
 }

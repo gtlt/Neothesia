@@ -66,7 +66,7 @@ pub struct PlayingScene {
 /// A word in the middle of the screen, to tell who is playing
 struct Banner {
     icon: &'static str,
-    text: String,
+    text: &'static str,
     /// Stays for as long as it is true when there is no end
     until: Option<Instant>,
 }
@@ -75,7 +75,7 @@ impl Banner {
     fn listening() -> Self {
         Self {
             icon: icons::ear_icon(),
-            text: locals::playing::listening(),
+            text: locals::t().playing.listening,
             until: None,
         }
     }
@@ -83,7 +83,7 @@ impl Banner {
     fn your_turn() -> Self {
         Self {
             icon: icons::note_list_icon(),
-            text: locals::playing::your_turn(),
+            text: locals::t().playing.your_turn,
             until: Some(Instant::now() + Duration::from_millis(2500)),
         }
     }
@@ -272,7 +272,7 @@ impl PlayingScene {
             .build(&mut self.nuon);
 
         nuon::label()
-            .text(&banner.text)
+            .text(banner.text)
             .font_size(24.0 * u)
             .color([225, 224, 230])
             .pos(0.0, y + 40.0 * u)

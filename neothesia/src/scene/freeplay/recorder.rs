@@ -27,9 +27,9 @@ const TICKS_PER_SECOND: f64 = TICKS_PER_BEAT as f64 * 1_000_000.0 / TEMPO_MICROS
 
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
 pub enum RecorderError {
-    #[error("{}", locals::freeplay::no_note_events_recorded())]
+    #[error("{}", locals::t().freeplay.no_note_events_recorded)]
     NoNotesFound,
-    #[error("{}", locals::freeplay::failed_to_write_midi_file())]
+    #[error("{}", locals::t().freeplay.failed_to_write_midi_file)]
     Write,
     #[error("{0}")]
     MidiFileParse(String),
