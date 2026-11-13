@@ -14,6 +14,8 @@ pub struct GuidelineRenderer {
     measure_line_height: f32,
 
     cache: Vec<QuadInstance>,
+    /// The cache can be empty and valid: there may be nothing to draw
+    cache_is_valid: bool,
     measures: Arc<[Duration]>,
 }
 
@@ -32,18 +34,24 @@ impl GuidelineRenderer {
             horizontal_guidelines,
             measure_line_height: 1.0,
             cache: Vec::new(),
+            cache_is_valid: false,
             measures,
         }
     }
 
     pub fn set_pos(&mut self, pos: Point<f32>) {
         self.pos = pos;
-        self.cache.clear();
+        self.invalidate_cache();
     }
 
     pub fn set_layout(&mut self, layout: piano_layout::KeyboardLayout) {
         self.layout = layout;
+        self.invalidate_cache();
+    }
+
+    fn invalidate_cache(&mut self) {
         self.cache.clear();
+        self.cache_is_valid = false;
     }
 
     pub fn set_measure_line_height(&mut self, height: f32) {
@@ -51,7 +59,19 @@ impl GuidelineRenderer {
     }
 
     /// Reupload instances to GPU
-    fn reupload(&mut self, size: dpi::LogicalSize<f32>) {
+    fn reupload(&mut self) {
+        // A keyboard that does not fill the window gets its lanes framed
+        if self.pos.x >= 1.0 {
+            for x in [self.pos.x - 1.0, self.pos.x + self.layout.width] {
+                self.cache.push(QuadInstance {
+                    position: [x, 0.0],
+                    size: [1.0, self.pos.y],
+                    color: [0.1, 0.1, 0.1, 1.0],
+                    ..Default::default()
+                });
+            }
+        }
+
         if !self.vertical_guidelines {
             return;
         }
@@ -66,7 +86,8 @@ impl GuidelineRenderer {
             let y = 0.0;
 
             let w = 1.0;
-            let h = size.height;
+            // Down to the keyboard
+            let h = self.pos.y;
 
             let color = if key.note_id() == 0 {
                 [0.2, 0.2, 0.2, 1.0]
@@ -91,7 +112,6 @@ impl GuidelineRenderer {
         animation_speed: f32,
         scale: f32,
         time: f32,
-        size: dpi::LogicalSize<f32>,
     ) {
         // Without snapping to whole physical pixels, the line seems to flicker a little bit
         let snap = |v: f32| (v * scale).round() / scale;
@@ -99,15 +119,17 @@ impl GuidelineRenderer {
         // The ticker the line, the dimer it has to be to still look decent
         let intensity = 0.05 / self.measure_line_height.max(1.0);
 
-        for masure in self
+        // Measures are sorted: no need to walk through the ones already played
+        let first = self
             .measures
-            .iter()
-            .skip_while(|bar| bar.as_secs_f32() < time)
-        {
-            let x = 0.0;
+            .partition_point(|bar| bar.as_secs_f32() < time);
+
+        for masure in &self.measures[first..] {
+            // As wide as the keyboard
+            let x = self.pos.x;
             let y = snap(self.pos.y - (masure.as_secs_f32() - time) * animation_speed);
 
-            let w = size.width;
+            let w = self.layout.width;
             let h = snap(self.measure_line_height).max(1.0 / scale);
 
             if y < 0.0 {
@@ -131,15 +153,15 @@ impl GuidelineRenderer {
         animation_speed: f32,
         scale: f32,
         time: f32,
-        size: dpi::LogicalSize<f32>,
     ) {
-        if self.cache.is_empty() {
-            self.reupload(size);
+        if !self.cache_is_valid {
+            self.reupload();
+            self.cache_is_valid = true;
         }
 
         if self.horizontal_guidelines {
             let animation_speed = animation_speed / scale;
-            self.update_horizontal_guidelines(quads, animation_speed, scale, time, size);
+            self.update_horizontal_guidelines(quads, animation_speed, scale, time);
         }
 
         quads.layer().extend(&self.cache);

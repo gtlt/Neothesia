@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{TransformUniform, Uniform, config::Config};
+use crate::{TransformUniform, Uniform, config::Config, render::KeyboardPlacement};
 use midi_file::{MidiNote, MidiTrack};
 use wgpu_jumpstart::{Color, Gpu};
 
@@ -48,7 +48,7 @@ impl WaterfallRenderer {
         hidden_tracks: &[usize],
         config: &Config,
         transform_uniform: &Uniform<TransformUniform>,
-        layout: piano_layout::KeyboardLayout,
+        keyboard: &KeyboardPlacement,
     ) -> Self {
         let notes = NoteList::new(tracks, hidden_tracks);
 
@@ -62,7 +62,7 @@ impl WaterfallRenderer {
         notes
             .notes_pipeline
             .set_speed(&gpu.queue, config.animation_speed());
-        notes.resize(config, layout);
+        notes.resize(config, keyboard);
         notes
     }
 
@@ -78,17 +78,21 @@ impl WaterfallRenderer {
         &mut self,
         notes: impl Into<Rc<[MidiNote]>>,
         config: &Config,
-        layout: piano_layout::KeyboardLayout,
+        keyboard: &KeyboardPlacement,
     ) {
         self.notes = NoteList {
             inner: notes.into(),
         };
-        self.resize(config, layout);
+        self.resize(config, keyboard);
     }
 
-    pub fn resize(&mut self, config: &Config, layout: piano_layout::KeyboardLayout) {
+    /// Lines the notes up with the keys they fall on
+    pub fn resize(&mut self, config: &Config, keyboard: &KeyboardPlacement) {
+        let layout = &keyboard.layout;
         let range_start = layout.range.start() as usize;
 
+        self.notes_pipeline
+            .set_keyboard_pos(&self.queue, keyboard.pos.x, keyboard.pos.y);
         self.notes_pipeline.clear();
 
         let mut longer_than_range = false;
@@ -116,7 +120,8 @@ impl WaterfallRenderer {
                     position: [key.x(), note.start.as_secs_f32()],
                     size: [key.width() - 1.0, h - 0.01], // h - 0.01 to make a little gap bettwen successive notes
                     color: color.into_linear_rgb(),
-                    radius: key.width() * 0.2,
+                    // Wide keys would turn short notes into blobs
+                    radius: (key.width() * 0.16).min(8.0),
                 });
             } else {
                 longer_than_range = true;

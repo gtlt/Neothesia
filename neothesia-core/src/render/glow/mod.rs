@@ -16,7 +16,8 @@ pub struct GlowPipeline {
 }
 
 impl<'a> GlowPipeline {
-    pub fn new(gpu: &Gpu, transform_uniform: &Uniform<TransformUniform>) -> Self {
+    /// `size_hint` is how many glows are expected at most
+    pub fn new(gpu: &Gpu, transform_uniform: &Uniform<TransformUniform>, size_hint: usize) -> Self {
         let shader = gpu
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -50,7 +51,7 @@ impl<'a> GlowPipeline {
             });
 
         let quad = Shape::new_quad(&gpu.device);
-        let instances = Instances::new(&gpu.device, 100_000);
+        let instances = Instances::new(&gpu.device, size_hint);
 
         Self {
             render_pipeline,

@@ -7,6 +7,8 @@ struct ViewUniform {
 struct TimeUniform {
     time: f32,
     speed: f32,
+    // Top left corner of the keyboard
+    keyboard: vec2<f32>,
 }
 
 @group(0) @binding(0)
@@ -42,11 +44,9 @@ fn vs_main(vertex: Vertex, note: NoteInstance) -> VertexOutput {
 
     let size = vec2<f32>(note.size.x * view_uniform.scale, note.size.y * abs(speed));
 
-    // In an ideal world this should not be hard-coded
-    let keyboard_h = view_uniform.size.y / 5.0;
-    let keyboard_y = view_uniform.size.y - keyboard_h;
+    let keyboard = time_uniform.keyboard * view_uniform.scale;
 
-    var pos = vec2<f32>(note.n_position.x * view_uniform.scale, keyboard_y);
+    var pos = vec2<f32>(keyboard.x + note.n_position.x * view_uniform.scale, keyboard.y);
 
     if speed > 0.0 {
         // If notes are falling from top to down, we need to adjust the position,
@@ -81,41 +81,29 @@ fn vs_main(vertex: Vertex, note: NoteInstance) -> VertexOutput {
     return out;
 }
 
-fn dist(
-    frag_coord: vec2<f32>,
-    position: vec2<f32>,
-    size: vec2<f32>,
-    radius: f32,
-) -> f32 {
-    let inner_size: vec2<f32> = size - vec2<f32>(radius, radius) * 2.0;
-    let top_left: vec2<f32> = position + vec2<f32>(radius, radius);
-    let bottom_right: vec2<f32> = top_left + inner_size;
-
-    let top_left_distance: vec2<f32> = top_left - frag_coord;
-    let bottom_right_distance: vec2<f32> = frag_coord - bottom_right;
-
-    let dist: vec2<f32> = vec2<f32>(
-        max(max(top_left_distance.x, bottom_right_distance.x), 0.0),
-        max(max(top_left_distance.y, bottom_right_distance.y), 0.0),
-    );
-
-    return sqrt(dist.x * dist.x + dist.y * dist.y);
-}
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let dist: f32 = dist(
-        in.position.xy,
-        in.note_pos,
-        in.size,
-        in.radius,
-    );
+    let half_size = in.size * 0.5;
+    // From the center of the note
+    let p = in.position.xy - in.note_pos - half_size;
 
-    let alpha: f32 = 1.0 - smoothstep(
-        max(in.radius - 0.5, 0.0),
-        in.radius + 0.5,
-        dist,
-    );
+    // Distance to the edge of the rounded box, negative inside
+    let radius = min(in.radius, min(half_size.x, half_size.y));
+    let q = abs(p) - half_size + vec2<f32>(radius);
+    let dist = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - radius;
 
-    return vec4<f32>(in.color, alpha);
+    let alpha = 1.0 - smoothstep(-0.5, 0.5, dist);
+
+    // Shaded on the gamma encoded color, where a step looks the same on every hue
+    var color = pow(in.color, vec3<f32>(1.0 / 2.2));
+
+    // A note is a bar lit from the left: its sides turn away from the light,
+    // the right one more than the left one
+    let across = p.x / half_size.x;
+    color *= 1.0 - 0.14 * smoothstep(0.3, 1.0, abs(across + 0.15));
+
+    // A darker rim keeps two notes that touch apart
+    color *= 1.0 - 0.22 * smoothstep(-2.5, -0.5, dist);
+
+    return vec4<f32>(pow(color, vec3<f32>(2.2)), alpha);
 }

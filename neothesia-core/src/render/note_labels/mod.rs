@@ -15,11 +15,10 @@ impl LabelsCache {
         let font_system = crate::font_system::font_system();
         let font_system = &mut font_system.borrow_mut();
 
-        let sharp_width = keyboard.layout().sizing.sharp_width;
         let neutral_width = keyboard.layout().sizing.neutral_width;
 
         if self.labels.is_none() || self.neutral_width != neutral_width {
-            let label_width = sharp_width;
+            let label_width = label_size(keyboard.layout());
 
             let labels = std::array::from_fn(|note_id| {
                 let mut buffer = glyphon::Buffer::new(
@@ -45,6 +44,13 @@ impl LabelsCache {
 
         self.labels.as_ref().unwrap()
     }
+}
+
+/// Font size of the labels: the widest name has to fit in the narrowest note,
+/// but has to stay readable on a full keyboard in a small window
+fn label_size(layout: &piano_layout::KeyboardLayout) -> f32 {
+    let sharp_width = layout.sizing.sharp_width;
+    (sharp_width * 0.55).clamp(14.0_f32.min(sharp_width), sharp_width)
 }
 
 pub struct NoteLabels {
@@ -87,30 +93,36 @@ impl NoteLabels {
     ) {
         let layout = keyboard.layout();
         let range_start = layout.range.start() as usize;
-        let label_width = layout.sizing.sharp_width;
+        // The label sits at the bottom of its note, with a bit of room under it
+        let label_height = label_size(layout) * 1.5;
 
         let labels = self.labels_cache.get(keyboard);
         let animation_speed = animation_speed / scale;
 
-        let iter = self
+        let label_y = |note: &midi_file::MidiNote| {
+            self.pos.y - (note.start.as_secs_f32() - time) * animation_speed - label_height
+        };
+
+        // Notes are sorted by start: the ones whose label already went under the top of
+        // the keyboard are all at the front, no need to walk through them
+        let first = self
             .notes
             .inner
+            .partition_point(|note| label_y(note) > keyboard.pos().y);
+
+        let iter = self.notes.inner[first..]
             .iter()
             .filter(|note| layout.range.contains(note.note) && note.channel != 9)
             .map(|note| {
                 let (buffer, text_width) = &labels[(note.note % 12) as usize];
 
                 let key = &layout.keys[note.note as usize - range_start];
-                let x = key.x() + (key.width() - text_width) / 2.0;
-                let y =
-                    self.pos.y - (note.start.as_secs_f32() - time) * animation_speed - label_width;
+                let x = self.pos.x + key.x() + (key.width() - text_width) / 2.0;
 
-                (buffer, x, y)
+                (buffer, x, label_y(note))
             })
             // Stop iteration once we reach top of the screen
             .take_while(|(_buffer, _x, y)| *y > 0.0)
-            // TODO: Cache last note idx to skip this NoOp skip iteration
-            .skip_while(|(_buffer, _x, y)| *y > keyboard.pos().y)
             .map(|(buffer, left, top)| glyphon::TextArea {
                 buffer,
                 left,

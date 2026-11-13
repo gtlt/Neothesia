@@ -40,13 +40,14 @@ impl GlowRenderer {
         transform: &Uniform<TransformUniform>,
         layout: &piano_layout::KeyboardLayout,
     ) -> Self {
-        let pipeline = GlowPipeline::new(gpu, transform);
-
         let states: Vec<GlowState> = layout
             .range
             .iter()
             .map(|_| GlowState { time: 0.0 })
             .collect();
+
+        // A key glows once at most
+        let pipeline = GlowPipeline::new(gpu, transform, states.len());
 
         Self { pipeline, states }
     }

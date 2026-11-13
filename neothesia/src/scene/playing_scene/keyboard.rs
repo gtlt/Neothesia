@@ -1,13 +1,28 @@
+use std::time::Duration;
+
 use midi_file::midly::MidiMessage;
 use neothesia_core::{
     config::ColorSchemaV1,
     piano_layout,
-    render::{KeyboardKeyState, QuadRenderer, TextRenderer},
-    utils::Point,
+    render::{KeyboardKeyState, KeyboardPlacement},
+    utils::{Point, Size},
 };
 use piano_layout::KeyboardRange;
 
-use crate::{config::Config, context::Context, render::KeyboardRenderer, song::SongConfig};
+use crate::{
+    config::Config,
+    context::Context,
+    render::KeyboardRenderer,
+    song::{PlayerConfig, SongConfig},
+};
+
+use super::midi_player::PressVerdict;
+
+/// A key that is not the one the song asked for
+const WRONG_KEY_COLORS: ColorSchemaV1 = ColorSchemaV1 {
+    base: (222, 92, 86),
+    dark: (160, 52, 48),
+};
 
 pub struct Keyboard {
     renderer: KeyboardRenderer,
@@ -15,31 +30,22 @@ pub struct Keyboard {
     pressed_by_user_colors: ColorSchemaV1,
 }
 
-fn get_layout(
-    width: f32,
-    height: f32,
-    range: piano_layout::KeyboardRange,
-) -> piano_layout::KeyboardLayout {
-    let white_count = range.white_count();
-    let neutral_width = width / white_count as f32;
-    let neutral_height = height * 0.2;
-
-    piano_layout::KeyboardLayout::from_range(
-        piano_layout::Sizing::new(neutral_width, neutral_height),
-        range,
+fn window_size(ctx: &Context) -> Size<f32> {
+    Size::new(
+        ctx.window_state.logical_size.width,
+        ctx.window_state.logical_size.height,
     )
 }
 
 impl Keyboard {
     pub fn new(ctx: &Context, song_config: SongConfig) -> Self {
-        let layout = get_layout(
-            ctx.window_state.logical_size.width,
-            ctx.window_state.logical_size.height,
+        let mut renderer = KeyboardRenderer::new(
+            &ctx.gpu,
+            &ctx.transform,
+            ctx.text_renderer_factory.new_renderer(),
             piano_layout::KeyboardRange::new(ctx.config.piano_range()),
+            window_size(ctx),
         );
-
-        let mut renderer = KeyboardRenderer::new(layout);
-        renderer.position_on_bottom_of_parent(ctx.window_state.logical_size.height);
         renderer.set_note_naming(ctx.config.keyboard_note_naming());
 
         let v = (255.0 * 0.3) as u8;
@@ -71,12 +77,12 @@ impl Keyboard {
         self.renderer.key_states()
     }
 
-    pub fn layout(&self) -> &piano_layout::KeyboardLayout {
-        self.renderer.layout()
+    pub fn placement(&self) -> &KeyboardPlacement {
+        self.renderer.placement()
     }
 
-    fn set_layout(&mut self, layout: piano_layout::KeyboardLayout) {
-        self.renderer.set_layout(layout)
+    pub fn layout(&self) -> &piano_layout::KeyboardLayout {
+        self.renderer.layout()
     }
 
     pub fn range(&self) -> &KeyboardRange {
@@ -87,24 +93,21 @@ impl Keyboard {
         self.renderer.pos()
     }
 
-    fn position_on_bottom_of_parent(&mut self, parent_height: f32) {
-        self.renderer.position_on_bottom_of_parent(parent_height)
-    }
-
     #[profiling::function]
     pub fn resize(&mut self, ctx: &Context) {
-        let keyboard_layout = get_layout(
-            ctx.window_state.logical_size.width,
-            ctx.window_state.logical_size.height,
-            self.renderer.layout().range.clone(),
-        );
-
-        self.set_layout(keyboard_layout.clone());
-        self.position_on_bottom_of_parent(ctx.window_state.logical_size.height);
+        self.renderer.resize(window_size(ctx));
     }
 
-    pub fn update(&mut self, quads: &mut QuadRenderer, brush: &mut TextRenderer) {
-        self.renderer.update(quads, brush)
+    pub fn update(&mut self, ctx: &Context, delta: Duration) {
+        self.renderer.update(
+            delta,
+            ctx.window_state.physical_size,
+            ctx.window_state.scale_factor as f32,
+        )
+    }
+
+    pub fn render<'pass>(&'pass self, rpass: &mut wgpu_jumpstart::RenderPass<'pass>) {
+        self.renderer.render(rpass)
     }
 
     pub fn reset_notes(&mut self) {
@@ -112,10 +115,33 @@ impl Keyboard {
     }
 
     pub fn user_midi_event(&mut self, message: &MidiMessage) {
+        let colors = self.pressed_by_user_colors.clone();
+        self.user_key(message, &colors);
+    }
+
+    /// Same as [`Self::user_midi_event`], for a key press that was judged against the song:
+    /// the key takes the color of its track when it is the right one.
+    pub fn judged_user_midi_event(
+        &mut self,
+        config: &Config,
+        message: &MidiMessage,
+        verdict: Option<PressVerdict>,
+    ) {
+        let colors = match verdict {
+            Some(PressVerdict::Right { track_color_id }) => {
+                config.color_schema()[track_color_id % config.color_schema().len()].clone()
+            }
+            Some(PressVerdict::Wrong) => WRONG_KEY_COLORS,
+            Some(PressVerdict::Free) | None => self.pressed_by_user_colors.clone(),
+        };
+        self.user_key(message, &colors);
+    }
+
+    fn user_key(&mut self, message: &MidiMessage, colors: &ColorSchemaV1) {
         let range_start = self.range().start() as usize;
 
         let (is_on, key) = match message {
-            MidiMessage::NoteOn { key, .. } => (true, key.as_int()),
+            MidiMessage::NoteOn { key, vel } => (vel.as_int() > 0, key.as_int()),
             MidiMessage::NoteOff { key, .. } => (false, key.as_int()),
             _ => return,
         };
@@ -124,8 +150,25 @@ impl Keyboard {
             let id = key as usize - range_start;
             let key = &mut self.renderer.key_states_mut()[id];
 
-            key.set_pressed_by_user(is_on, &self.pressed_by_user_colors);
-            self.renderer.invalidate_quad_cache();
+            key.set_pressed_by_user(is_on, colors);
+            self.renderer.invalidate_keys();
+        }
+    }
+
+    /// Tells the keys which ones the song is waiting for
+    pub fn set_awaited_notes(&mut self, notes: impl Iterator<Item = u8>) {
+        // One bit per MIDI note
+        let awaited = notes.fold(0u128, |set, note| set | 1 << (note & 127));
+        let range_start = self.range().start();
+
+        let mut changed = false;
+        for (id, key) in self.renderer.key_states_mut().iter_mut().enumerate() {
+            let note = range_start as usize + id;
+            changed |= key.set_awaited(awaited >> note & 1 == 1);
+        }
+
+        if changed {
+            self.renderer.invalidate_keys();
         }
     }
 
@@ -151,12 +194,17 @@ impl Keyboard {
                 if is_on {
                     let color =
                         &config.color_schema()[e.track_color_id % config.color_schema().len()];
-                    key.pressed_by_file_on(color);
+
+                    if track.player == PlayerConfig::Human {
+                        key.expected_by_file_on(color);
+                    } else {
+                        key.pressed_by_file_on(color);
+                    }
                 } else {
                     key.pressed_by_file_off();
                 }
 
-                self.renderer.invalidate_quad_cache();
+                self.renderer.invalidate_keys();
             }
         }
     }

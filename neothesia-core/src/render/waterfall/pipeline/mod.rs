@@ -118,6 +118,12 @@ impl WaterfallPipeline {
         self.time_uniform.data.time = time;
         self.time_uniform.update(queue);
     }
+
+    /// Top left corner of the keyboard the notes fall on, in logical pixels
+    pub fn set_keyboard_pos(&mut self, queue: &wgpu::Queue, x: f32, y: f32) {
+        self.time_uniform.data.keyboard = [x, y];
+        self.time_uniform.update(queue);
+    }
 }
 
 #[repr(C)]
@@ -125,6 +131,7 @@ impl WaterfallPipeline {
 struct TimeUniform {
     time: f32,
     speed: f32,
+    keyboard: [f32; 2],
 }
 
 impl Default for TimeUniform {
@@ -132,6 +139,7 @@ impl Default for TimeUniform {
         Self {
             time: 0.0,
             speed: 400.0,
+            keyboard: [0.0, 0.0],
         }
     }
 }

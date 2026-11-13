@@ -136,7 +136,7 @@ impl Preview {
             &hidden_tracks,
             &ctx.config,
             &ctx.transform,
-            keyboard.layout().clone(),
+            keyboard.placement(),
         );
 
         let note_labels = ctx.config.note_labels().then_some(NoteLabels::new(
@@ -164,8 +164,7 @@ impl Preview {
     }
 
     pub fn resize(&mut self, keyboard: &Keyboard, ctx: &mut Context) {
-        self.waterfall
-            .resize(&ctx.config, keyboard.layout().clone());
+        self.waterfall.resize(&ctx.config, keyboard.placement());
 
         if let Some(note_labels) = self.note_labels.as_mut() {
             note_labels.set_pos(*keyboard.pos());

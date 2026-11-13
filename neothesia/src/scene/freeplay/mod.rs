@@ -44,7 +44,6 @@ pub struct FreeplayScene {
 
     text_renderer: TextRenderer,
     quad_renderer_bg: QuadRenderer,
-    quad_renderer_fg: QuadRenderer,
     glow: Option<GlowRenderer>,
     live_waterfall: LiveWaterfallRenderer,
 
@@ -82,7 +81,6 @@ impl FreeplayScene {
         let text_renderer = ctx.text_renderer_factory.new_renderer();
 
         let quad_renderer_bg = ctx.quad_renderer_factory.new_renderer();
-        let quad_renderer_fg = ctx.quad_renderer_factory.new_renderer();
 
         let glow = ctx.config.glow().then_some(GlowRenderer::new(
             &ctx.gpu,
@@ -90,19 +88,14 @@ impl FreeplayScene {
             keyboard.layout(),
         ));
 
-        let live_waterfall = LiveWaterfallRenderer::new(
-            &ctx.gpu,
-            &ctx.config,
-            &ctx.transform,
-            keyboard.layout().clone(),
-        );
+        let live_waterfall =
+            LiveWaterfallRenderer::new(&ctx.gpu, &ctx.config, &ctx.transform, keyboard.placement());
 
         Self {
             keyboard,
             guidelines,
             text_renderer,
             quad_renderer_bg,
-            quad_renderer_fg,
             glow,
             live_waterfall,
             song,
@@ -128,6 +121,7 @@ impl FreeplayScene {
 
         let keys = &self.keyboard.layout().keys;
         let states = self.keyboard.key_states();
+        let pos = self.keyboard.pos();
 
         for (key, state) in keys.iter().zip(states) {
             let Some(mut color) = state.pressed_by_user().copied() else {
@@ -138,14 +132,7 @@ impl FreeplayScene {
             color.g *= 0.5;
             color.b *= 0.5;
 
-            glow.push(
-                key.id(),
-                color,
-                key.x(),
-                self.keyboard.pos().y,
-                key.width(),
-                delta,
-            );
+            glow.push(key.id(), color, pos.x + key.x(), pos.y, key.width(), delta);
         }
     }
 
@@ -166,7 +153,7 @@ impl FreeplayScene {
         self.guidelines.set_layout(self.keyboard.layout().clone());
         self.guidelines.set_pos(*self.keyboard.pos());
         self.live_waterfall
-            .resize(&ctx.config, self.keyboard.layout().clone());
+            .resize(&ctx.config, self.keyboard.placement());
         if let Some(preview) = self.preview.as_mut() {
             preview.resize(&self.keyboard, ctx);
         }
@@ -192,7 +179,6 @@ impl FreeplayScene {
 impl Scene for FreeplayScene {
     fn update(&mut self, ctx: &mut Context, delta: Duration) {
         self.quad_renderer_bg.clear();
-        self.quad_renderer_fg.clear();
 
         self.dispatch_futures(ctx);
 
@@ -207,10 +193,8 @@ impl Scene for FreeplayScene {
             ctx.config.animation_speed(),
             ctx.window_state.scale_factor as f32,
             time,
-            ctx.window_state.logical_size,
         );
-        self.keyboard
-            .update(&mut self.quad_renderer_fg, &mut self.text_renderer);
+        self.keyboard.update(ctx, delta);
 
         self.update_glow(delta);
 
@@ -221,7 +205,6 @@ impl Scene for FreeplayScene {
         );
 
         self.quad_renderer_bg.prepare();
-        self.quad_renderer_fg.prepare();
 
         if let Some(glow) = &mut self.glow {
             glow.prepare();
@@ -244,7 +227,7 @@ impl Scene for FreeplayScene {
         } else {
             self.live_waterfall.render(rpass);
         }
-        self.quad_renderer_fg.render(rpass);
+        self.keyboard.render(rpass);
         if let Some(glow) = &self.glow {
             glow.render(rpass);
         }

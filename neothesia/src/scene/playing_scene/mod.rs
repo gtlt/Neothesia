@@ -43,7 +43,6 @@ pub struct PlayingScene {
     player: MidiPlayer,
     rewind_controller: RewindController,
     quad_renderer_bg: QuadRenderer,
-    quad_renderer_fg: QuadRenderer,
     glow: Option<GlowRenderer>,
     toast_manager: ToastManager,
 
@@ -69,6 +68,8 @@ impl PlayingScene {
             song.file.measures.clone(),
         );
 
+        let keyboard_placement = keyboard.placement().clone();
+
         let hidden_tracks: Vec<usize> = song
             .config
             .tracks
@@ -83,7 +84,7 @@ impl PlayingScene {
             &hidden_tracks,
             &ctx.config,
             &ctx.transform,
-            keyboard_layout.clone(),
+            &keyboard_placement,
         );
 
         let text_renderer = ctx.text_renderer_factory.new_renderer();
@@ -104,7 +105,6 @@ impl PlayingScene {
         waterfall.update(player.time_without_lead_in());
 
         let quad_renderer_bg = ctx.quad_renderer_factory.new_renderer();
-        let quad_renderer_fg = ctx.quad_renderer_factory.new_renderer();
 
         let glow = ctx.config.glow().then_some(GlowRenderer::new(
             &ctx.gpu,
@@ -123,7 +123,6 @@ impl PlayingScene {
             player,
             rewind_controller: RewindController::new(),
             quad_renderer_bg,
-            quad_renderer_fg,
             glow,
             toast_manager: ToastManager::default(),
 
@@ -144,20 +143,14 @@ impl PlayingScene {
 
         let keys = &self.keyboard.layout().keys;
         let states = self.keyboard.key_states();
+        let pos = self.keyboard.pos();
 
         for (key, state) in keys.iter().zip(states) {
             let Some(color) = state.pressed_by_file() else {
                 continue;
             };
 
-            glow.push(
-                key.id(),
-                *color,
-                key.x(),
-                self.keyboard.pos().y,
-                key.width(),
-                delta,
-            );
+            glow.push(key.id(), *color, pos.x + key.x(), pos.y, key.width(), delta);
         }
     }
 
@@ -193,6 +186,9 @@ impl PlayingScene {
             self.keyboard.file_midi_events(&ctx.config, &midi_events);
         }
 
+        self.keyboard
+            .set_awaited_notes(self.player.play_along().awaited_notes());
+
         self.player.time_without_lead_in() + ctx.config.animation_offset()
     }
 
@@ -207,7 +203,7 @@ impl PlayingScene {
         }
 
         self.waterfall
-            .resize(&ctx.config, self.keyboard.layout().clone());
+            .resize(&ctx.config, self.keyboard.placement());
     }
 }
 
@@ -215,7 +211,6 @@ impl Scene for PlayingScene {
     #[profiling::function]
     fn update(&mut self, ctx: &mut Context, delta: Duration) {
         self.quad_renderer_bg.clear();
-        self.quad_renderer_fg.clear();
 
         self.rewind_controller.update(&mut self.player, ctx, delta);
         self.toast_manager.update(&mut self.text_renderer);
@@ -227,10 +222,8 @@ impl Scene for PlayingScene {
             ctx.config.animation_speed(),
             ctx.window_state.scale_factor as f32,
             time,
-            ctx.window_state.logical_size,
         );
-        self.keyboard
-            .update(&mut self.quad_renderer_fg, &mut self.text_renderer);
+        self.keyboard.update(ctx, delta);
         self.update_chord_identifier(ctx.config.chord_identifier());
         if let Some(note_labels) = self.note_labels.as_mut() {
             note_labels.update(
@@ -259,7 +252,6 @@ impl Scene for PlayingScene {
         super::render_nuon(&mut self.nuon, &mut self.nuon_renderer, ctx);
 
         self.quad_renderer_bg.prepare();
-        self.quad_renderer_fg.prepare();
 
         if let Some(glow) = &mut self.glow {
             glow.prepare();
@@ -291,7 +283,7 @@ impl Scene for PlayingScene {
         if let Some(note_labels) = self.note_labels.as_mut() {
             note_labels.render(rpass);
         }
-        self.quad_renderer_fg.render(rpass);
+        self.keyboard.render(rpass);
         if let Some(glow) = &self.glow {
             glow.render(rpass);
         }
@@ -334,9 +326,10 @@ impl Scene for PlayingScene {
         super::handle_nuon_window_event(&mut self.nuon, event, ctx);
     }
 
-    fn midi_event(&mut self, _ctx: &mut Context, channel: u8, message: &MidiMessage) {
-        self.player.user_midi_event(channel, message);
-        self.keyboard.user_midi_event(message);
+    fn midi_event(&mut self, ctx: &mut Context, channel: u8, message: &MidiMessage) {
+        let verdict = self.player.user_midi_event(channel, message);
+        self.keyboard
+            .judged_user_midi_event(&ctx.config, message, verdict);
     }
 }
 

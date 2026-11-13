@@ -2,6 +2,7 @@ use std::{default::Default, time::Duration};
 
 use midi_file::midly;
 use neothesia_core::{
+    Size,
     config::Config,
     piano_layout,
     render::{
@@ -19,7 +20,6 @@ struct Recorder {
     playback: midi_file::PlaybackState,
 
     quad_renderer_bg: QuadRenderer,
-    quad_renderer_fg: QuadRenderer,
     keyboard: KeyboardRenderer,
     waterfall: WaterfallRenderer,
     text: TextRenderer,
@@ -31,21 +31,6 @@ struct Recorder {
     height: u32,
 
     synth: oxisynth::Synth,
-}
-
-fn get_layout(
-    width: f32,
-    height: f32,
-    range: piano_layout::KeyboardRange,
-) -> piano_layout::KeyboardLayout {
-    let white_count = range.white_count();
-    let neutral_width = width / white_count as f32;
-    let neutral_height = height * 0.2;
-
-    piano_layout::KeyboardLayout::from_range(
-        piano_layout::Sizing::new(neutral_width, neutral_height),
-        range,
-    )
 }
 
 fn time_without_lead_in(playback: &midi_file::PlaybackState) -> f32 {
@@ -83,16 +68,16 @@ impl Recorder {
         let quad_renderer_factory = QuadRendererFactory::new(&gpu, &transform_uniform);
 
         let quad_renderer_bg = quad_renderer_factory.new_renderer();
-        let quad_renderer_fg = quad_renderer_factory.new_renderer();
 
-        let keyboard_layout = get_layout(
-            width as f32,
-            height as f32,
+        let text_renderer_factory = TextRendererFactory::new(&gpu);
+
+        let mut keyboard = KeyboardRenderer::new(
+            &gpu,
+            &transform_uniform,
+            text_renderer_factory.new_renderer(),
             piano_layout::KeyboardRange::new(config.piano_range()),
+            Size::new(width as f32, height as f32),
         );
-
-        let mut keyboard = KeyboardRenderer::new(keyboard_layout.clone());
-        keyboard.position_on_bottom_of_parent(height as f32);
         keyboard.set_note_naming(config.keyboard_note_naming());
 
         let mut guidelines = GuidelineRenderer::new(
@@ -112,14 +97,13 @@ impl Recorder {
             &[],
             &config,
             &transform_uniform,
-            keyboard_layout,
+            keyboard.placement(),
         );
 
         let playback = midi_file::PlaybackState::new(Duration::from_secs(3), midi.tracks.clone());
 
         waterfall.update(time_without_lead_in(&playback));
 
-        let text_renderer_factory = TextRendererFactory::new(&gpu);
         let text = text_renderer_factory.new_renderer();
 
         let mut synth = oxisynth::Synth::new(oxisynth::SynthDescriptor {
@@ -148,7 +132,6 @@ impl Recorder {
             playback,
 
             quad_renderer_bg,
-            quad_renderer_fg,
             keyboard,
             waterfall,
             text,
@@ -170,23 +153,23 @@ impl Recorder {
         let time = time_without_lead_in(&self.playback);
 
         self.quad_renderer_bg.clear();
-        self.quad_renderer_fg.clear();
 
         self.guidelines.update(
             &mut self.quad_renderer_bg,
             self.config.animation_speed(),
             1.0,
             time,
-            neothesia_core::dpi::LogicalSize::new(self.width as f32, self.height as f32),
         );
 
         self.waterfall.update(time);
 
-        self.keyboard
-            .update(&mut self.quad_renderer_fg, &mut self.text);
+        self.keyboard.update(
+            delta,
+            neothesia_core::dpi::PhysicalSize::new(self.width, self.height),
+            1.0,
+        );
 
         self.quad_renderer_bg.prepare();
-        self.quad_renderer_fg.prepare();
 
         if let Some(note_labels) = self.note_labels.as_mut() {
             note_labels.update(
@@ -244,7 +227,7 @@ impl Recorder {
             if let Some(note_labels) = self.note_labels.as_mut() {
                 note_labels.render(&mut rpass);
             }
-            self.quad_renderer_fg.render(&mut rpass);
+            self.keyboard.render(&mut rpass);
             self.text.render(&mut rpass);
         }
 
@@ -429,7 +412,7 @@ fn file_midi_events(
                 key.pressed_by_file_off();
             }
 
-            keyboard.invalidate_quad_cache();
+            keyboard.invalidate_keys();
         }
     }
 }

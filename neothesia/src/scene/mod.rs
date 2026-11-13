@@ -167,7 +167,7 @@ fn handle_mouse_to_midi_event(
         .filter(|key| key.kind().is_neutral());
 
     for key in sharp.chain(neutral) {
-        let pos = nuon::Point::new(key.x(), keyboard.pos().y);
+        let pos = nuon::Point::new(keyboard.pos().x + key.x(), keyboard.pos().y);
         let size = nuon::Size::from(key.size());
         let rect = nuon::Rect::new(pos, size);
         if !rect.contains(mouse_pos) {

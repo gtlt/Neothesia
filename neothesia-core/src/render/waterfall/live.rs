@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
-use crate::{TransformUniform, Uniform, config::Config};
+use crate::{TransformUniform, Uniform, config::Config, render::KeyboardPlacement};
 use midi_file::MidiNote;
 use wgpu_jumpstart::Gpu;
 
@@ -9,7 +9,7 @@ use super::WaterfallRenderer;
 /// Reversed waterfall built out of live played notes, notes grow out of the keyboard and rise up
 pub struct LiveWaterfallRenderer {
     renderer: WaterfallRenderer,
-    layout: piano_layout::KeyboardLayout,
+    keyboard: KeyboardPlacement,
     finished: Vec<MidiNote>,
     active: HashMap<u8, MidiNote>,
     time: Duration,
@@ -21,25 +21,24 @@ impl LiveWaterfallRenderer {
         gpu: &Gpu,
         config: &Config,
         transform_uniform: &Uniform<TransformUniform>,
-        layout: piano_layout::KeyboardLayout,
+        keyboard: &KeyboardPlacement,
     ) -> Self {
-        let renderer =
-            WaterfallRenderer::new(gpu, &[], &[], config, transform_uniform, layout.clone());
+        let renderer = WaterfallRenderer::new(gpu, &[], &[], config, transform_uniform, keyboard);
 
         let mut live = Self {
             renderer,
-            layout: layout.clone(),
+            keyboard: keyboard.clone(),
             finished: Vec::new(),
             active: HashMap::new(),
             time: Duration::ZERO,
             queue: gpu.queue.clone(),
         };
-        live.resize(config, layout);
+        live.resize(config, keyboard);
         live
     }
 
-    pub fn resize(&mut self, config: &Config, layout: piano_layout::KeyboardLayout) {
-        self.layout = layout;
+    pub fn resize(&mut self, config: &Config, keyboard: &KeyboardPlacement) {
+        self.keyboard = keyboard.clone();
 
         self.renderer
             .pipeline()
@@ -91,15 +90,15 @@ impl LiveWaterfallRenderer {
                     .values()
                     .map(|note| end_note(note.clone(), time)),
             )
-            .filter(|note| self.layout.range.contains(note.note))
+            .filter(|note| self.keyboard.layout.range.contains(note.note))
             .collect();
-        let range_start = self.layout.range.start();
+        let range_start = self.keyboard.layout.range.start();
         notes.sort_unstable_by_key(|note| {
-            let key = &self.layout.keys[(note.note - range_start) as usize];
+            let key = &self.keyboard.layout.keys[(note.note - range_start) as usize];
             (key.kind().is_sharp(), note.start)
         });
 
-        self.renderer.set_notes(notes, config, self.layout.clone());
+        self.renderer.set_notes(notes, config, &self.keyboard);
         self.renderer.update(time.as_secs_f32());
     }
 
