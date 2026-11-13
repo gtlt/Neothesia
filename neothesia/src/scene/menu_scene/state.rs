@@ -24,6 +24,9 @@ pub struct UiState {
     pub range_detection: RangeDetection,
     pub keyboard_size: KeyboardSize,
 
+    /// Output and input were connected once since the menu opened
+    is_io_connected: bool,
+
     page_stack: VecDeque<Page>,
 }
 
@@ -39,6 +42,8 @@ impl UiState {
             selected_input: None,
             is_loading: false,
             song,
+
+            is_io_connected: false,
 
             page_stack,
             range_detection: RangeDetection::default(),
@@ -114,6 +119,14 @@ impl UiState {
             };
 
             self.selected_input = exact.or_else(renumbered).or(self.inputs.first()).cloned();
+        }
+
+        // Connect as soon as the menu opens rather than when a song starts: a large
+        // SoundFont takes seconds to load, and the first notes of the song were silent.
+        // The keyboard can also be heard right away.
+        if !self.is_io_connected {
+            self.is_io_connected = true;
+            connect_io(self, ctx);
         }
     }
 }

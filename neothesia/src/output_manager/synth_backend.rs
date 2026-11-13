@@ -93,11 +93,15 @@ impl SynthBackend {
         std::thread::spawn({
             let tx = tx.clone();
             let path = path.to_path_buf();
-            move || match load_font(&path) {
-                Ok(font) => {
-                    tx.send(SynthEvent::LoadFont(font)).ok();
+            move || {
+                let start = std::time::Instant::now();
+                match load_font(&path) {
+                    Ok(font) => {
+                        log::info!("SoundFont loaded in {:.1?}", start.elapsed());
+                        tx.send(SynthEvent::LoadFont(font)).ok();
+                    }
+                    Err(err) => log::error!("Failed to load a soundfont: {err}"),
                 }
-                Err(err) => log::error!("Failed to load a soundfont: {err}"),
             }
         });
 
