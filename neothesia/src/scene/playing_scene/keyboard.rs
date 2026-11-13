@@ -28,6 +28,8 @@ pub struct Keyboard {
     renderer: KeyboardRenderer,
     song_config: SongConfig,
     pressed_by_user_colors: ColorSchemaV1,
+    /// The app plays the tracks of the player too
+    listening: bool,
 }
 
 fn window_size(ctx: &Context) -> Size<f32> {
@@ -58,6 +60,7 @@ impl Keyboard {
             renderer,
             song_config,
             pressed_by_user_colors: ColorSchemaV1 { base, dark },
+            listening: false,
         }
     }
 
@@ -67,6 +70,11 @@ impl Keyboard {
 
     pub fn set_pressed_by_user_colors(&mut self, colors: ColorSchemaV1) {
         self.pressed_by_user_colors = colors;
+    }
+
+    /// While listening the app plays every track, the keys of the player go down by themselves
+    pub fn set_listening(&mut self, listening: bool) {
+        self.listening = listening;
     }
 
     pub fn renderer(&self) -> &KeyboardRenderer {
@@ -195,7 +203,7 @@ impl Keyboard {
                     let color =
                         &config.color_schema()[e.track_color_id % config.color_schema().len()];
 
-                    if track.player == PlayerConfig::Human {
+                    if track.player == PlayerConfig::Human && !self.listening {
                         key.expected_by_file_on(color);
                     } else {
                         key.pressed_by_file_on(color);

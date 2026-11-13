@@ -2,7 +2,7 @@ use midi_file::midly::MidiMessage;
 use neothesia_core::render::{
     GlowRenderer, GuidelineRenderer, NoteLabels, QuadRenderer, TextRenderer,
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use winit::{
     event::WindowEvent,
     keyboard::{Key, NamedKey},
@@ -12,8 +12,8 @@ use self::top_bar::TopBar;
 
 use super::{NuonRenderer, Scene};
 use crate::{
-    NeothesiaEvent, context::Context, render::WaterfallRenderer, scene::MouseToMidiEventState,
-    song::Song, utils::window::WinitEvent,
+    NeothesiaEvent, context::Context, icons, locals, render::WaterfallRenderer,
+    scene::MouseToMidiEventState, song::Song, utils::window::WinitEvent,
 };
 
 mod keyboard;
@@ -21,6 +21,9 @@ pub use keyboard::Keyboard;
 
 pub(crate) mod midi_player;
 use midi_player::MidiPlayer;
+
+mod results;
+use results::{Results, ResultsAction};
 
 mod rewind_controller;
 use rewind_controller::RewindController;
@@ -52,6 +55,42 @@ pub struct PlayingScene {
     deduced_chord_name: String,
 
     top_bar: TopBar,
+
+    /// Shown once the song is over
+    results: Option<Results>,
+    /// What the player scored the time before
+    last_score: Option<midi_player::Score>,
+    banner: Option<Banner>,
+}
+
+/// A word in the middle of the screen, to tell who is playing
+struct Banner {
+    icon: &'static str,
+    text: String,
+    /// Stays for as long as it is true when there is no end
+    until: Option<Instant>,
+}
+
+impl Banner {
+    fn listening() -> Self {
+        Self {
+            icon: icons::ear_icon(),
+            text: locals::playing::listening(),
+            until: None,
+        }
+    }
+
+    fn your_turn() -> Self {
+        Self {
+            icon: icons::note_list_icon(),
+            text: locals::playing::your_turn(),
+            until: Some(Instant::now() + Duration::from_millis(2500)),
+        }
+    }
+
+    fn is_over(&self) -> bool {
+        self.until.is_some_and(|until| Instant::now() >= until)
+    }
 }
 
 impl PlayingScene {
@@ -131,7 +170,114 @@ impl PlayingScene {
             deduced_chord_name: String::new(),
 
             top_bar: TopBar::new(),
+
+            results: None,
+            last_score: None,
+            banner: None,
         }
+    }
+
+    /// Back to the start of the song, with a blank score
+    fn restart(&mut self) {
+        self.player.restart();
+        self.keyboard.reset_notes();
+        self.results = None;
+    }
+
+    /// While listening the app plays the tracks of the player too.
+    /// Either way the song starts over: one listens to all of it, then plays all of it.
+    fn set_listening(&mut self, listening: bool) {
+        self.player.set_listening(listening);
+        self.keyboard.set_listening(listening);
+        self.restart();
+
+        self.banner = Some(if listening {
+            Banner::listening()
+        } else {
+            Banner::your_turn()
+        });
+    }
+
+    fn toggle_listening(&mut self) {
+        self.set_listening(!self.player.is_listening());
+    }
+
+    fn go_to_menu(&self, ctx: &Context) {
+        ctx.proxy
+            .send_event(NeothesiaEvent::MainMenu(Some(self.player.song().clone())))
+            .ok();
+    }
+
+    /// The song reached its end
+    fn song_finished(&mut self, ctx: &Context) {
+        if self.player.is_listening() {
+            // Heard it, now play it
+            self.set_listening(false);
+        } else if self.player.has_targets() {
+            self.player.pause();
+
+            let score = self.player.score();
+            self.results = Some(Results {
+                score,
+                previous: self.last_score.replace(score),
+            });
+        } else {
+            self.go_to_menu(ctx);
+        }
+    }
+
+    fn results_ui(&mut self, ctx: &Context) {
+        // Seeking back into the song takes the card away
+        if !self.player.is_finished() {
+            self.results = None;
+        }
+
+        let Some(results) = &self.results else {
+            return;
+        };
+
+        let area = nuon::Rect::new(
+            nuon::Point::zero(),
+            nuon::Size::new(ctx.window_state.logical_size.width, self.keyboard.pos().y),
+        );
+
+        match results.ui(&mut self.nuon, area) {
+            ResultsAction::None => {}
+            ResultsAction::PlayAgain => self.restart(),
+            ResultsAction::Listen => self.set_listening(true),
+            ResultsAction::Menu => self.go_to_menu(ctx),
+        }
+    }
+
+    fn banner_ui(&mut self, ctx: &Context) {
+        if self.banner.as_ref().is_some_and(Banner::is_over) || self.results.is_some() {
+            self.banner = None;
+        }
+
+        let Some(banner) = &self.banner else {
+            return;
+        };
+
+        let w = ctx.window_state.logical_size.width;
+        let u = (self.keyboard.pos().y / 480.0).clamp(1.0, 2.0);
+        // Under the top bar, even when it is open
+        let y = 95.0;
+
+        nuon::label()
+            .icon(banner.icon)
+            .font_size(30.0 * u)
+            .color([225, 224, 230])
+            .pos(0.0, y)
+            .size(w, 36.0 * u)
+            .build(&mut self.nuon);
+
+        nuon::label()
+            .text(&banner.text)
+            .font_size(24.0 * u)
+            .color([225, 224, 230])
+            .pos(0.0, y + 40.0 * u)
+            .size(w, 30.0 * u)
+            .build(&mut self.nuon);
     }
 
     fn update_glow(&mut self, delta: Duration) {
@@ -238,6 +384,8 @@ impl Scene for PlayingScene {
         self.update_glow(delta);
 
         TopBar::update(self, ctx);
+        self.banner_ui(ctx);
+        self.results_ui(ctx);
 
         if ctx.config.chord_identifier() {
             nuon::label()
@@ -270,9 +418,7 @@ impl Scene for PlayingScene {
         );
 
         if self.player.is_finished() && !self.player.is_paused() {
-            ctx.proxy
-                .send_event(NeothesiaEvent::MainMenu(Some(self.player.song().clone())))
-                .ok();
+            self.song_finished(ctx);
         }
     }
 
@@ -301,13 +447,26 @@ impl Scene for PlayingScene {
         }
 
         if event.back_mouse_pressed() || event.key_released(Key::Named(NamedKey::Escape)) {
-            ctx.proxy
-                .send_event(NeothesiaEvent::MainMenu(Some(self.player.song().clone())))
-                .ok();
+            self.go_to_menu(ctx);
         }
 
-        if event.key_released(Key::Named(NamedKey::Space)) {
+        if self.results.is_some() {
+            // The song is over: the keys that would resume it start it again
+            if event.key_released(Key::Named(NamedKey::Space))
+                || event.key_released(Key::Named(NamedKey::Enter))
+            {
+                self.restart();
+            }
+        } else if event.key_released(Key::Named(NamedKey::Space)) {
             self.player.pause_resume();
+        }
+
+        if event.key_released(Key::Named(NamedKey::Home)) {
+            self.restart();
+        }
+
+        if event.key_released(Key::Named(NamedKey::Tab)) && self.player.has_targets() {
+            self.toggle_listening();
         }
 
         handle_settings_input(ctx, &mut self.toast_manager, &mut self.waterfall, event);

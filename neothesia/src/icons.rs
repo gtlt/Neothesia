@@ -32,6 +32,22 @@ pub fn pin_fill_icon() -> &'static str {
     "\u{f4ea}"
 }
 
+pub fn ear_icon() -> &'static str {
+    "\u{f689}"
+}
+
+pub fn ear_fill_icon() -> &'static str {
+    "\u{f688}"
+}
+
+pub fn skip_start_icon() -> &'static str {
+    "\u{f563}"
+}
+
+pub fn replay_icon() -> &'static str {
+    "\u{f117}"
+}
+
 pub fn left_arrow_icon() -> &'static str {
     "\u{f12f}"
 }

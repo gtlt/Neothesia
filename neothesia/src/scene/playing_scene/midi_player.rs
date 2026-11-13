@@ -1,6 +1,3 @@
-// Part of the scoring API is not called by the scene yet, only by the tests
-#![allow(dead_code)]
-
 use midi_file::midly::{MidiMessage, num::u4};
 
 use crate::{

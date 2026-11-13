@@ -159,6 +159,31 @@ impl TopBar {
                 .send_event(NeothesiaEvent::MainMenu(Some(this.player.song().clone())))
                 .ok();
         }
+
+        nuon::translate().x(30.0).build(ui, |ui| {
+            if Self::button().icon(icons::skip_start_icon()).build(ui) {
+                this.restart();
+            }
+
+            // Listening only makes sense when there is something for the player to play
+            if !this.player.has_targets() {
+                return;
+            }
+
+            nuon::translate().x(30.0).add_to_current(ui);
+
+            if Self::button()
+                .id("listen")
+                .icon(if this.player.is_listening() {
+                    icons::ear_fill_icon()
+                } else {
+                    icons::ear_icon()
+                })
+                .build(ui)
+            {
+                this.toggle_listening();
+            }
+        });
     }
 
     fn panel_center(_this: &mut PlayingScene, ctx: &mut Context, ui: &mut nuon::Ui) {

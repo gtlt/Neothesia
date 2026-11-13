@@ -564,4 +564,56 @@ pub mod playing {
             _ => format!("Offset: {offset}"),
         }
     }
+
+    /// Shown while the app plays the song for the player to hear it
+    pub fn listening() -> String {
+        match LOCAL.as_str() {
+            "fr" => "Écoute".into(),
+            _ => "Listen".into(),
+        }
+    }
+
+    /// Shown when the player takes over
+    pub fn your_turn() -> String {
+        match LOCAL.as_str() {
+            "fr" => "À toi".into(),
+            _ => "Your turn".into(),
+        }
+    }
+
+    /// Goes under "12 / 16"
+    pub fn results_caption() -> String {
+        match LOCAL.as_str() {
+            "fr" => "notes justes du premier coup".into(),
+            _ => "notes right at the first try".into(),
+        }
+    }
+
+    pub fn results_previous(first_try: usize) -> String {
+        match LOCAL.as_str() {
+            "fr" => format!("La fois d'avant : {first_try}"),
+            _ => format!("Last time: {first_try}"),
+        }
+    }
+
+    pub fn play_again() -> String {
+        match LOCAL.as_str() {
+            "fr" => "Rejouer".into(),
+            _ => "Play again".into(),
+        }
+    }
+
+    pub fn listen() -> String {
+        match LOCAL.as_str() {
+            "fr" => "Écouter".into(),
+            _ => "Listen".into(),
+        }
+    }
+
+    pub fn menu() -> String {
+        match LOCAL.as_str() {
+            "fr" => "Menu".into(),
+            _ => "Menu".into(),
+        }
+    }
 }
