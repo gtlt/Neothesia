@@ -1,4 +1,9 @@
-use crate::{MidiTrack, program_track::ProgramTrack, tempo_track::TempoTrack};
+use crate::{
+    MidiTrack,
+    measures::{bar_starts, time_signature_changes},
+    program_track::ProgramTrack,
+    tempo_track::TempoTrack,
+};
 use midly::{Format, Smf, Timing};
 use std::{fs, path::Path, sync::Arc};
 
@@ -79,16 +84,20 @@ impl MidiFile {
                     }
                 });
 
-            let mut masures = Vec::new();
+            let signatures = time_signature_changes(&smf.tracks);
+            let mut bar_pulses = bar_starts(&signatures, u_per_quarter_note);
+
+            let mut measures = Vec::new();
             let mut time = std::time::Duration::ZERO;
-            let mut id = 0;
             while time <= last_note_end {
-                time = tempo_track.pulses_to_duration(id * u_per_quarter_note as u64 * 4);
-                masures.push(time);
-                id += 1;
+                let Some(pulses) = bar_pulses.next() else {
+                    break;
+                };
+                time = tempo_track.pulses_to_duration(pulses);
+                measures.push(time);
             }
 
-            masures
+            measures
         };
 
         let program_track = ProgramTrack::new(&tracks);
@@ -101,5 +110,79 @@ impl MidiFile {
             tempo_track,
             measures: measures.into(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use midly::{
+        Header, MetaMessage, MidiMessage, TrackEvent, TrackEventKind,
+        num::{u4, u7, u24, u28},
+    };
+    use std::time::Duration;
+
+    fn event(delta: u32, kind: TrackEventKind<'static>) -> TrackEvent<'static> {
+        TrackEvent {
+            delta: u28::new(delta),
+            kind,
+        }
+    }
+
+    fn note(delta: u32, on: bool) -> TrackEvent<'static> {
+        let message = if on {
+            MidiMessage::NoteOn {
+                key: u7::new(60),
+                vel: u7::new(90),
+            }
+        } else {
+            MidiMessage::NoteOff {
+                key: u7::new(60),
+                vel: u7::new(0),
+            }
+        };
+        event(
+            delta,
+            TrackEventKind::Midi {
+                channel: u4::new(0),
+                message,
+            },
+        )
+    }
+
+    #[test]
+    fn measures_follow_six_eight_signature() {
+        // 6/8 at 480 pulses per quarter note and 120 BPM: a bar is 3 quarter notes, 1.5 s.
+        let conductor = vec![
+            event(
+                0,
+                TrackEventKind::Meta(MetaMessage::TimeSignature(6, 3, 24, 8)),
+            ),
+            event(
+                0,
+                TrackEventKind::Meta(MetaMessage::Tempo(u24::new(500_000))),
+            ),
+            event(0, TrackEventKind::Meta(MetaMessage::EndOfTrack)),
+        ];
+        // Notes lasting 8 quarter notes, so 4 s.
+        let notes = vec![
+            note(0, true),
+            note(480 * 8, false),
+            event(0, TrackEventKind::Meta(MetaMessage::EndOfTrack)),
+        ];
+
+        let smf = Smf {
+            header: Header::new(Format::Parallel, Timing::Metrical(480.into())),
+            tracks: vec![conductor, notes],
+        };
+
+        let file = MidiFile::from_smf("six-eight", &smf).unwrap();
+
+        // The last bar is the first one past the end of the last note.
+        let expected: Vec<Duration> = [0.0, 1.5, 3.0, 4.5]
+            .into_iter()
+            .map(Duration::from_secs_f64)
+            .collect();
+        assert_eq!(&*file.measures, expected.as_slice());
     }
 }
